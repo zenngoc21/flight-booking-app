@@ -1,0 +1,86 @@
+[
+  {
+    "code": "SGN",
+    "city": "TP. Hồ Chí Minh",
+    "airport": "Sân bay quốc tế Tân Sơn Nhất",
+    "country": "Việt Nam",
+    "status": "active"
+  },
+  {
+    "code": "HAN",
+    "city": "Hà Nội",
+    "airport": "Sân bay quốc tế Nội Bài",
+    "country": "Việt Nam",
+    "status": "active"
+  },
+  {
+    "code": "DAD",
+    "city": "Đà Nẵng",
+    "airport": "Sân bay quốc tế Đà Nẵng",
+    "country": "Việt Nam",
+    "status": "active"
+  },
+  {
+    "code": "CXR",
+    "city": "Nha Trang",
+    "airport": "Sân bay quốc tế Cam Ranh",
+    "country": "Việt Nam",
+    "status": "active"
+  },
+  {
+    "code": "PQC",
+    "city": "Phú Quốc",
+    "airport": "Sân bay quốc tế Phú Quốc",
+    "country": "Việt Nam",
+    "status": "active"
+  },
+  {
+    "code": "HPH",
+    "city": "Hải Phòng",
+    "airport": "Sân bay quốc tế Cát Bi",
+    "country": "Việt Nam",
+    "status": "active"
+  },
+  {
+    "code": "HUI",
+    "city": "Huế",
+    "airport": "Sân bay quốc tế Phú Bài",
+    "country": "Việt Nam",
+    "status": "active"
+  },
+  {
+    "code": "VII",
+    "city": "Vinh",
+    "airport": "Sân bay quốc tế Vinh",
+    "country": "Việt Nam",
+    "status": "active"
+  },
+  {
+    "code": "BKK",
+    "city": "Bangkok",
+    "airport": "Suvarnabhumi Airport",
+    "country": "Thái Lan",
+    "status": "active"
+  },
+  {
+    "code": "SIN",
+    "city": "Singapore",
+    "airport": "Changi Airport",
+    "country": "Singapore",
+    "status": "active"
+  },
+  {
+    "code": "HKG",
+    "city": "Hong Kong",
+    "airport": "Hong Kong International Airport",
+    "country": "Hong Kong",
+    "status": "active"
+  },
+  {
+    "code": "ICN",
+    "city": "Seoul",
+    "airport": "Incheon International Airport",
+    "country": "Hàn Quốc",
+    "status": "active"
+  }
+]

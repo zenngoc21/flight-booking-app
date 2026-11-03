@@ -1,0 +1,32 @@
+[
+  {
+    "name": "Vietnam Airlines",
+    "code": "VN",
+    "logoUrl": "",
+    "status": "active"
+  },
+  {
+    "name": "VietJet Air",
+    "code": "VJ",
+    "logoUrl": "",
+    "status": "active"
+  },
+  {
+    "name": "Bamboo Airways",
+    "code": "QH",
+    "logoUrl": "",
+    "status": "active"
+  },
+  {
+    "name": "Pacific Airlines",
+    "code": "BL",
+    "logoUrl": "",
+    "status": "active"
+  },
+  {
+    "name": "Singapore Airlines",
+    "code": "SQ",
+    "logoUrl": "",
+    "status": "active"
+  }
+]

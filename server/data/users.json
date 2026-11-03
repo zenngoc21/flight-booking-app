@@ -1,0 +1,16 @@
+[
+  {
+    "fullName": "Quản trị viên",
+    "email": "admin@flightbooking.local",
+    "password": "$2y$12$r4fvwOInYQn0MwMCJs/X0ONoqP/s7qtipsVV.WoT64KROoOAqnYdG",
+    "phone": "0900000001",
+    "role": "admin"
+  },
+  {
+    "fullName": "Người dùng Demo",
+    "email": "user@flightbooking.local",
+    "password": "$2y$12$fqGUmpt5/bzis48qqwQyUenV6mRV/nJ09WxfBgBX7p0K1mFmoCAY6",
+    "phone": "0900000002",
+    "role": "user"
+  }
+]

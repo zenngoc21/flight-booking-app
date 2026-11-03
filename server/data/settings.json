@@ -1,0 +1,13 @@
+[
+  {
+    "key": "general",
+    "siteName": "Flight Booking",
+    "supportEmail": "support@flightbooking.local",
+    "supportPhone": "19000000",
+    "currency": "VND",
+    "timezone": "Asia/Ho_Chi_Minh",
+    "bookingEnabled": true,
+    "maintenanceMode": false,
+    "cancellationPolicy": "Dữ liệu demo: vui lòng kiểm tra điều kiện vé trước khi xác nhận đặt chỗ."
+  }
+]
