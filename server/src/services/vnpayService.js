@@ -24,6 +24,7 @@ function getVnpayConfig() {
     returnUrl: process.env.VNPAY_RETURN_URL,
     clientReturnUrl:
       process.env.VNPAY_CLIENT_RETURN_URL || 'client://booking/payment',
+    webReturnUrl: process.env.VNPAY_WEB_RETURN_URL,
     orderType: process.env.VNPAY_ORDER_TYPE || 'other',
     locale: process.env.VNPAY_LOCALE || 'vn',
   };
@@ -84,17 +85,20 @@ function validateClientReturnUrl(value) {
   const config = getVnpayConfig();
   const input = value || config.clientReturnUrl;
   let target;
-  let configured;
+  let allowedReturnUrls;
   try {
     target = new URL(input);
-    configured = new URL(config.clientReturnUrl);
+    allowedReturnUrls = [
+      config.clientReturnUrl,
+      config.webReturnUrl,
+    ].filter(Boolean).map((url) => new URL(url).toString());
   } catch {
     const error = new Error('Địa chỉ quay lại ứng dụng không hợp lệ');
     error.status = 400;
     throw error;
   }
 
-  if (target.toString() === configured.toString()) return target.toString();
+  if (allowedReturnUrls.includes(target.toString())) return target.toString();
   if (process.env.NODE_ENV === 'production') {
     const error = new Error('Địa chỉ quay lại phải trùng cấu hình VNPay của server');
     error.status = 400;
@@ -140,6 +144,32 @@ function formatVnpayDate(date) {
   }).formatToParts(date);
   const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
   return `${values.year}${values.month}${values.day}${values.hour}${values.minute}${values.second}`;
+}
+
+function parseVnpayDate(value) {
+  if (typeof value !== 'string' || !/^\d{14}$/.test(value)) return null;
+
+  const year = Number(value.slice(0, 4));
+  const month = Number(value.slice(4, 6));
+  const day = Number(value.slice(6, 8));
+  const hour = Number(value.slice(8, 10));
+  const minute = Number(value.slice(10, 12));
+  const second = Number(value.slice(12, 14));
+  const localTime = Date.UTC(year, month - 1, day, hour, minute, second);
+  const check = new Date(localTime);
+
+  if (
+    check.getUTCFullYear() !== year ||
+    check.getUTCMonth() !== month - 1 ||
+    check.getUTCDate() !== day ||
+    check.getUTCHours() !== hour ||
+    check.getUTCMinutes() !== minute ||
+    check.getUTCSeconds() !== second
+  ) {
+    return null;
+  }
+
+  return new Date(localTime - 7 * 60 * 60 * 1000);
 }
 
 function createPaymentUrl({ booking, ipAddress }) {
@@ -204,6 +234,8 @@ module.exports = {
   getClientReturnUrl,
   getVnpayConfig,
   isValidSignature,
+  formatVnpayDate,
+  parseVnpayDate,
   signParameters,
   validateClientReturnUrl,
 };

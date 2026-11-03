@@ -20,6 +20,7 @@ const {
   handleVnpayReturn,
 } = require('../src/controllers/paymentController');
 const {
+  formatVnpayDate,
   isValidSignature,
   signParameters,
 } = require('../src/services/vnpayService');
@@ -57,10 +58,10 @@ function signedParameters(overrides = {}) {
     vnp_TmnCode: 'TESTCODE',
     vnp_TxnRef: BOOKING_ID,
     vnp_Amount: '250000000',
-    vnp_CurrCode: 'VND',
     vnp_ResponseCode: '00',
     vnp_TransactionStatus: '00',
     vnp_BankCode: 'NCB',
+    vnp_PayDate: formatVnpayDate(new Date()),
     ...overrides,
   };
   return {
@@ -87,6 +88,7 @@ describe('VNPay IPN', () => {
       flight: FLIGHT_ID,
       seats: ['1A'],
       returnFlight: null,
+      paymentMethod: 'vnpay',
       bookingStatus: 'pending',
       paymentStatus: 'pending',
       expiresAt: new Date(Date.now() + 10 * 60 * 1000),
@@ -110,6 +112,7 @@ describe('VNPay IPN', () => {
   });
 
   it('creates and stores a signed payment URL for the authenticated booking', async () => {
+    booking.paymentMethod = 'bank_transfer';
     Booking.findOne.mockReturnValue({
       select: jest.fn().mockResolvedValue(booking),
     });
@@ -143,6 +146,35 @@ describe('VNPay IPN', () => {
             'exp://192.168.1.10:8081/--/booking/payment',
         }),
       }),
+    );
+  });
+
+  it('updates the return URL when reusing an existing payment URL', async () => {
+    const paymentUrl = 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html?txn=1';
+    const webReturnUrl = 'http://localhost:8081/booking/payment';
+    booking.paymentMethod = 'vnpay';
+    booking.vnpayPaymentUrl = paymentUrl;
+    Booking.findOne.mockReturnValue({
+      select: jest.fn().mockResolvedValue(booking),
+    });
+    const res = createResponse();
+
+    await createVnpayPayment({
+      params: { bookingId: BOOKING_ID },
+      user: { _id: USER_ID },
+      body: { clientReturnUrl: webReturnUrl },
+    }, res, (error) => { throw error; });
+
+    expect(res.body.data.paymentUrl).toBe(paymentUrl);
+    expect(Booking.updateOne).toHaveBeenCalledWith(
+      expect.objectContaining({
+        _id: BOOKING_ID,
+        user: USER_ID,
+        bookingStatus: 'pending',
+        paymentStatus: 'pending',
+        vnpayPaymentUrl: paymentUrl,
+      }),
+      { $set: { vnpayClientReturnUrl: webReturnUrl } },
     );
   });
 
@@ -200,11 +232,17 @@ describe('VNPay IPN', () => {
   it('verifies the signed return and redirects to the originating app URL', async () => {
     const clientReturnUrl =
       'exp://192.168.1.10:8081/--/booking/payment';
-    Booking.findById.mockReturnValue({
-      select: jest.fn().mockResolvedValue({
+    Booking.findById.mockImplementation(() => {
+      const returnBooking = {
         ...booking,
         vnpayClientReturnUrl: clientReturnUrl,
-      }),
+      };
+      return {
+        select: jest.fn().mockResolvedValue(returnBooking),
+        then(resolve, reject) {
+          return Promise.resolve(booking).then(resolve, reject);
+        },
+      };
     });
     const res = createResponse();
     await handleVnpayReturn({
@@ -215,6 +253,15 @@ describe('VNPay IPN', () => {
     expect(res.redirectUrl).toContain(`${clientReturnUrl}?`);
     expect(res.redirectUrl).toContain(`bookingId=${BOOKING_ID}`);
     expect(res.redirectUrl).toContain('gatewayStatus=success');
+    expect(Booking.updateOne).toHaveBeenCalledWith(
+      expect.objectContaining({ bookingStatus: 'pending', paymentStatus: 'pending' }),
+      expect.objectContaining({
+        $set: expect.objectContaining({
+          bookingStatus: 'confirmed',
+          paymentStatus: 'paid',
+        }),
+      }),
+    );
   });
 
   it('rejects a bad signature without looking up or changing a booking', async () => {
@@ -238,12 +285,82 @@ describe('VNPay IPN', () => {
     expect(Booking.updateOne).not.toHaveBeenCalled();
   });
 
-  it('does not confirm or leave seats booked when a seat reservation fails', async () => {
+  it('records a successful charge for reconciliation when a seat reservation fails', async () => {
     Flight.updateOne.mockResolvedValue({ modifiedCount: 0 });
     const res = createResponse();
     await handleVnpayIpn({ query: signedParameters() }, res);
 
-    expect(res.body.RspCode).toBe('99');
-    expect(Booking.updateOne).not.toHaveBeenCalled();
+    expect(res.body.RspCode).toBe('00');
+    expect(Booking.updateOne).toHaveBeenCalledWith(
+      expect.objectContaining({
+        bookingStatus: 'pending',
+        paymentStatus: 'pending',
+      }),
+      expect.objectContaining({
+        $set: expect.objectContaining({
+          bookingStatus: 'cancelled',
+          paymentStatus: 'paid',
+        }),
+      }),
+    );
+  });
+
+  it('confirms an expired booking when VNPay paid before its expiry and seats remain available', async () => {
+    const expiresAt = new Date(Date.now() - 2 * 60 * 1000);
+    booking.bookingStatus = 'expired';
+    booking.paymentStatus = 'failed';
+    booking.createdAt = new Date(expiresAt.getTime() - 60 * 60 * 1000);
+    booking.expiresAt = expiresAt;
+    const paidAt = new Date(expiresAt.getTime() - 30 * 1000);
+    const res = createResponse();
+    await handleVnpayIpn({
+      query: signedParameters({ vnp_PayDate: formatVnpayDate(paidAt) }),
+    }, res);
+
+    expect(res.body).toEqual({ RspCode: '00', Message: 'Confirm success' });
+    expect(redis.get).not.toHaveBeenCalled();
+    expect(Flight.updateOne).toHaveBeenCalledTimes(1);
+    expect(Booking.updateOne).toHaveBeenCalledWith(
+      expect.objectContaining({
+        bookingStatus: 'expired',
+        paymentStatus: 'failed',
+      }),
+      expect.objectContaining({
+        $set: expect.objectContaining({
+          bookingStatus: 'confirmed',
+          paymentStatus: 'paid',
+          paidAt: expect.any(Date),
+        }),
+      }),
+    );
+  });
+
+  it('records a successful charge for reconciliation when payment occurred after expiry', async () => {
+    const expiresAt = new Date(Date.now() - 2 * 60 * 1000);
+    booking.bookingStatus = 'expired';
+    booking.paymentStatus = 'failed';
+    booking.createdAt = new Date(expiresAt.getTime() - 60 * 60 * 1000);
+    booking.expiresAt = expiresAt;
+    const paidAt = new Date(expiresAt.getTime() + 30 * 1000);
+    const res = createResponse();
+    await handleVnpayIpn({
+      query: signedParameters({ vnp_PayDate: formatVnpayDate(paidAt) }),
+    }, res);
+
+    expect(res.body).toEqual({ RspCode: '00', Message: 'Confirm success' });
+    expect(Flight.updateOne).not.toHaveBeenCalled();
+    expect(Booking.updateOne).toHaveBeenCalledWith(
+      expect.objectContaining({
+        bookingStatus: 'expired',
+        paymentStatus: 'failed',
+      }),
+      expect.objectContaining({
+        $set: expect.objectContaining({
+          bookingStatus: 'cancelled',
+          paymentStatus: 'paid',
+          paidAt: expect.any(Date),
+        }),
+      }),
+    );
   });
 });

@@ -8,6 +8,7 @@ const {
   getClientReturnUrl,
   getVnpayConfig,
   isValidSignature,
+  parseVnpayDate,
   validateClientReturnUrl,
 } = require('../services/vnpayService');
 
@@ -420,7 +421,26 @@ async function createVnpayPayment(req, res, next) {
       });
     }
 
+    const clientReturnUrl = validateClientReturnUrl(req.body?.clientReturnUrl);
     if (booking.vnpayPaymentUrl) {
+      const returnUrlUpdated = await Booking.updateOne(
+        {
+          _id: booking._id,
+          user: req.user._id,
+          bookingStatus: 'pending',
+          paymentStatus: 'pending',
+          vnpayPaymentUrl: booking.vnpayPaymentUrl,
+        },
+        { $set: { vnpayClientReturnUrl: clientReturnUrl } },
+      );
+      if (
+        returnUrlUpdated.matchedCount !== 1 &&
+        returnUrlUpdated.modifiedCount !== 1
+      ) {
+        return res.status(409).json({
+          message: 'Booking vừa được xử lý bởi một yêu cầu khác',
+        });
+      }
       return res.json({
         message: 'Đã tạo giao dịch VNPay Sandbox',
         data: { paymentUrl: booking.vnpayPaymentUrl },
@@ -437,7 +457,6 @@ async function createVnpayPayment(req, res, next) {
       booking,
       ipAddress: req.ip?.replace(/^::ffff:/, '') || '127.0.0.1',
     });
-    const clientReturnUrl = validateClientReturnUrl(req.body?.clientReturnUrl);
     const started = await Booking.updateOne(
       {
         _id: booking._id,
@@ -505,6 +524,45 @@ function logVnpayReconciliation(booking, reason) {
   });
 }
 
+function getVnpayBankCode(parameters) {
+  return /^[a-z\d]{2,20}$/i.test(parameters.vnp_BankCode || '')
+    ? parameters.vnp_BankCode
+    : 'VNPAY';
+}
+
+async function recordPaidBookingForReconciliation(
+  booking,
+  parameters,
+  paidAt,
+  redis,
+  reason,
+) {
+  const updated = await Booking.updateOne(
+    {
+      _id: booking._id,
+      bookingStatus: booking.bookingStatus,
+      paymentStatus: booking.paymentStatus,
+      'pricing.currency': 'VND',
+      'pricing.total': booking.pricing.total,
+    },
+    {
+      $set: {
+        paymentMethod: 'vnpay',
+        bankCode: getVnpayBankCode(parameters),
+        bookingStatus: 'cancelled',
+        paymentStatus: 'paid',
+        paidAt,
+      },
+      $unset: { vnpayPaymentUrl: 1, failedAt: 1 },
+    },
+  );
+
+  if (updated.modifiedCount !== 1) return false;
+  await releaseBookingSeats(booking, redis);
+  logVnpayReconciliation(booking, reason);
+  return true;
+}
+
 async function handleVnpayReturn(req, res, next) {
   try {
     const config = getVnpayConfig();
@@ -525,11 +583,30 @@ async function handleVnpayReturn(req, res, next) {
       return res.status(404).send('Không tìm thấy booking');
     }
     if (
-      parameters.vnp_CurrCode !== 'VND' ||
+      booking.pricing?.currency !== 'VND' ||
       parameters.vnp_Amount !== String(Number(booking.pricing?.total) * 100)
     ) {
       return res.status(400).send('Số tiền giao dịch VNPay không hợp lệ');
     }
+
+    const processingResponse = {
+      body: null,
+      json(body) {
+        this.body = body;
+        return this;
+      },
+    };
+    await handleVnpayIpn(req, processingResponse);
+    if (
+      processingResponse.body?.RspCode !== '00' &&
+      processingResponse.body?.RspCode !== '02'
+    ) {
+      console.error(
+        'VNPay Return đã xác thực nhưng IPN chưa thể hoàn tất:',
+        processingResponse.body?.Message || 'Unknown processing error',
+      );
+    }
+
     return res.redirect(
       303,
       getClientReturnUrl(parameters, booking.vnpayClientReturnUrl),
@@ -567,8 +644,8 @@ async function handleVnpayIpn(req, res) {
     const expectedAmount = Number(booking.pricing?.total) * 100;
     if (
       !Number.isSafeInteger(expectedAmount) ||
-      parameters.vnp_Amount !== String(expectedAmount) ||
-      parameters.vnp_CurrCode !== 'VND'
+      booking.pricing?.currency !== 'VND' ||
+      parameters.vnp_Amount !== String(expectedAmount)
     ) {
       logVnpayReconciliation(booking, 'Số tiền hoặc loại tiền từ IPN không khớp');
       return sendVnpayIpnResult(res, '04', 'Invalid amount');
@@ -576,14 +653,26 @@ async function handleVnpayIpn(req, res) {
     const providerPaid =
       parameters.vnp_ResponseCode === '00' &&
       parameters.vnp_TransactionStatus === '00';
-    if (
-      booking.bookingStatus !== 'pending' ||
-      booking.paymentStatus !== 'pending'
-    ) {
+    const pendingBooking =
+      booking.bookingStatus === 'pending' &&
+      booking.paymentStatus === 'pending';
+    const expiredBooking =
+      booking.bookingStatus === 'expired' &&
+      booking.paymentStatus === 'failed';
+    const canAcceptCallback =
+      booking.paymentMethod === 'vnpay' &&
+      (pendingBooking || (providerPaid && expiredBooking));
+    if (!canAcceptCallback) {
       if (providerPaid && booking.paymentStatus !== 'paid') {
         logVnpayReconciliation(booking, 'Booking đã được đóng trước khi nhận IPN thành công');
       }
       return sendVnpayIpnResult(res, '02', 'Order already processed');
+    }
+
+    const paidAt = providerPaid ? parseVnpayDate(parameters.vnp_PayDate) : null;
+    if (providerPaid && !paidAt) {
+      logVnpayReconciliation(booking, 'Thời gian thanh toán trong IPN không hợp lệ');
+      return sendVnpayIpnResult(res, '97', 'Invalid payment date');
     }
 
     redis = getRedisClient();
@@ -604,17 +693,10 @@ async function handleVnpayIpn(req, res) {
       return sendVnpayIpnResult(res, '99', 'Payment is being processed');
     }
 
-    if (
-      new Date(booking.expiresAt).getTime() <= Date.now() ||
-      booking.pricing?.currency !== 'VND'
-    ) {
-      if (providerPaid) {
-        logVnpayReconciliation(booking, 'Booking đã hết hạn hoặc sai loại tiền');
-      }
-      return sendVnpayIpnResult(res, '99', 'Booking expired or currency mismatch');
-    }
-
     if (!providerPaid) {
+      if (!pendingBooking) {
+        return sendVnpayIpnResult(res, '02', 'Order already processed');
+      }
       const failedAt = new Date();
       const failed = await Booking.updateOne(
         {
@@ -626,9 +708,7 @@ async function handleVnpayIpn(req, res) {
         {
           $set: {
             paymentMethod: 'vnpay',
-            bankCode: /^[a-z\d]{2,20}$/i.test(parameters.vnp_BankCode || '')
-              ? parameters.vnp_BankCode
-              : 'VNPAY',
+            bankCode: getVnpayBankCode(parameters),
             bookingStatus: 'cancelled',
             paymentStatus: 'failed',
             failedAt,
@@ -643,6 +723,30 @@ async function handleVnpayIpn(req, res) {
       return sendVnpayIpnResult(res, '00', 'Confirm success');
     }
 
+    const expiresAt = new Date(booking.expiresAt);
+    const createdAt = booking.createdAt ? new Date(booking.createdAt) : null;
+    const paidWithinBookingWindow =
+      Number.isFinite(expiresAt.getTime()) &&
+      paidAt <= expiresAt &&
+      (!createdAt || paidAt >= createdAt);
+    const isLatePayment =
+      expiredBooking || expiresAt.getTime() <= Date.now();
+
+    if (!paidWithinBookingWindow) {
+      const recorded = await recordPaidBookingForReconciliation(
+        booking,
+        parameters,
+        paidAt,
+        redis,
+        'VNPay đã thu tiền ngoài thời hạn booking; cần hoàn tiền hoặc đối soát',
+      );
+      return sendVnpayIpnResult(
+        res,
+        recorded ? '00' : '02',
+        recorded ? 'Confirm success' : 'Order already processed',
+      );
+    }
+
     for (const { flightId: flightValue, seats } of getBookingLegs(booking)) {
       const flightId = flightValue?._id ? flightValue._id : flightValue;
       const flight = await Flight.findOne({
@@ -652,16 +756,38 @@ async function handleVnpayIpn(req, res) {
       });
       if (!flight) {
         await rollbackBookedSeats(reservedLegs);
-        logVnpayReconciliation(booking, 'Chuyến bay không còn khả dụng');
-        return sendVnpayIpnResult(res, '99', 'Flight is no longer available');
+        const recorded = await recordPaidBookingForReconciliation(
+          booking,
+          parameters,
+          paidAt,
+          redis,
+          'Chuyến bay không còn khả dụng sau khi VNPay đã thu tiền',
+        );
+        return sendVnpayIpnResult(
+          res,
+          recorded ? '00' : '02',
+          recorded ? 'Confirm success' : 'Order already processed',
+        );
       }
 
       for (const seatNumber of seats) {
-        const holder = await redis.get(`seat-hold:${flight._id}:${seatNumber}`);
+        const holder = isLatePayment
+          ? booking.user.toString()
+          : await redis.get(`seat-hold:${flight._id}:${seatNumber}`);
         if (holder !== booking.user.toString()) {
           await rollbackBookedSeats(reservedLegs);
-          logVnpayReconciliation(booking, `Quyền giữ ghế ${seatNumber} đã hết hạn`);
-          return sendVnpayIpnResult(res, '99', 'Seat hold is no longer valid');
+          const recorded = await recordPaidBookingForReconciliation(
+            booking,
+            parameters,
+            paidAt,
+            redis,
+            `Quyền giữ ghế ${seatNumber} đã hết hạn sau khi VNPay thu tiền`,
+          );
+          return sendVnpayIpnResult(
+            res,
+            recorded ? '00' : '02',
+            recorded ? 'Confirm success' : 'Order already processed',
+          );
         }
       }
 
@@ -673,8 +799,18 @@ async function handleVnpayIpn(req, res) {
         selectedSeats.some((seat) => seat.status !== 'available')
       ) {
         await rollbackBookedSeats(reservedLegs);
-        logVnpayReconciliation(booking, 'Ghế không còn ở trạng thái sẵn sàng');
-        return sendVnpayIpnResult(res, '99', 'Seat is no longer available');
+        const recorded = await recordPaidBookingForReconciliation(
+          booking,
+          parameters,
+          paidAt,
+          redis,
+          'Ghế không còn khả dụng sau khi VNPay đã thu tiền',
+        );
+        return sendVnpayIpnResult(
+          res,
+          recorded ? '00' : '02',
+          recorded ? 'Confirm success' : 'Order already processed',
+        );
       }
 
       const reservation = await Flight.updateOne(
@@ -692,33 +828,39 @@ async function handleVnpayIpn(req, res) {
       );
       if (reservation.modifiedCount !== 1) {
         await rollbackBookedSeats(reservedLegs);
-        logVnpayReconciliation(booking, 'Không thể giữ ghế do có giao dịch đồng thời');
-        return sendVnpayIpnResult(res, '99', 'Seat reservation conflict');
+        const recorded = await recordPaidBookingForReconciliation(
+          booking,
+          parameters,
+          paidAt,
+          redis,
+          'Không thể giữ ghế do có giao dịch đồng thời sau khi VNPay thu tiền',
+        );
+        return sendVnpayIpnResult(
+          res,
+          recorded ? '00' : '02',
+          recorded ? 'Confirm success' : 'Order already processed',
+        );
       }
       reservedLegs.push({ flightId: flight._id, seats });
     }
 
-    const paidAt = new Date();
     const payment = await Booking.updateOne(
       {
         _id: booking._id,
-        bookingStatus: 'pending',
-        paymentStatus: 'pending',
-        expiresAt: { $gt: paidAt },
+        bookingStatus: booking.bookingStatus,
+        paymentStatus: booking.paymentStatus,
         'pricing.currency': 'VND',
         'pricing.total': booking.pricing.total,
       },
       {
         $set: {
           paymentMethod: 'vnpay',
-          bankCode: /^[a-z\d]{2,20}$/i.test(parameters.vnp_BankCode || '')
-            ? parameters.vnp_BankCode
-            : 'VNPAY',
+          bankCode: getVnpayBankCode(parameters),
           bookingStatus: 'confirmed',
           paymentStatus: 'paid',
           paidAt,
         },
-        $unset: { vnpayPaymentUrl: 1 },
+        $unset: { vnpayPaymentUrl: 1, failedAt: 1 },
       },
     );
     if (payment.modifiedCount !== 1) {

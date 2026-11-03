@@ -12,7 +12,7 @@ Dự án gồm 3 phần dùng chung API:
 - Điện thoại và máy tính cùng Wi-Fi nếu chạy client trên Expo Go.
 
 ## 1. Cài dependencies
-Mở 3 terminal tại thư mục dự án:
+Mở 3 terminal tại thư mục dự án và 1 thanh toán vnpay:
 
 ```powershell
 cd server
@@ -29,6 +29,27 @@ cd client
 npm install
 ```
 
+
+```powershell
+cài đặt ngrok
+tại thư mục C hoặc D tạo thư mục tên là ngrok
+copy thư mục ngrok.exe 
+kiểm tra version phải trên 3.2 chạy lệnh : & "C:\ngrok\ngrok.exe" version , thay nếu ở thư mục khác
+kết nối cấu hình trên powershell
+& "C:\ngrok\ngrok.exe" config add-authtoken YOUR_NEW_AUTHTOKEN
+YOUR_NEW_AUTHTOKEN = 3LYXAI7PUXrJFOOXj7cfTmZJ9Nr_31Yc9KivtWm3o7dEttEeF
+
+khi thành công chạy & "C:\ngrok\ngrok.exe" http 5000
+
+Ví dụ kết quả ngrok
+
+Forwarding
+
+https://abc123.ngrok-free.app
+     ->
+http://localhost:5001
+
+
 Dùng `npm install` (không dùng `npm ci`) để đồng bộ lockfile của client với dependency QR `qrcode` đã bổ sung.
 
 ## 2. Tạo file môi trường
@@ -43,8 +64,11 @@ Dùng `npm install` (không dùng `npm ci`) để đồng bộ lockfile của cl
 - Lấy `VNPAY_TMN_CODE` và `VNPAY_HASH_SECRET` từ tài khoản merchant VNPay Sandbox; không dùng thông tin production trong môi trường phát triển.
 - Đặt `VNPAY_RETURN_URL` và `VNPAY_IPN_URL` thành HTTPS URL public có thể truy cập đến API. Cấu hình cùng IPN URL trong merchant portal VNPay; `localhost`/IP LAN không nhận được callback từ VNPay.
 - Với development/Expo Go, để trống `EXPO_PUBLIC_VNPAY_CLIENT_RETURN_URL`; client gửi URL quay lại do Expo tạo và server chỉ chấp nhận URL thuộc scheme Expo/app hoặc host dev cục bộ. Với bản build native/production, đặt `VNPAY_CLIENT_RETURN_URL` trong `server/.env` trùng với `EXPO_PUBLIC_VNPAY_CLIENT_RETURN_URL` trong `client/.env` (mặc định `client://booking/payment`). Scheme `client` đã khai báo trong `client/app.json`.
-- Khởi động lại server và Expo sau khi đổi env. App tạo URL thanh toán từ số tiền đã lưu trong booking; chỉ IPN có chữ ký hợp lệ, đúng merchant và đúng số tiền mới được xác nhận Booking. Client không tự quyết định kết quả thanh toán.
-- VNPay Sandbox là môi trường thử nghiệm, không dùng để thu tiền thật. `/api/payments/vnpay/return` chỉ đưa người dùng về app; `/api/payments/vnpay/ipn` mới là nguồn xác nhận trạng thái.
+- Khi chạy trên web, cửa sổ thanh toán VNPay được mở riêng để không điều hướng mất trang ứng dụng; trang ứng dụng sẽ kiểm tra trạng thái booking với server. Với web production, đặt `VNPAY_WEB_RETURN_URL` trong `server/.env` và `EXPO_PUBLIC_VNPAY_WEB_RETURN_URL` trong `client/.env` cùng bằng URL HTTPS đầy đủ của trang thanh toán, ví dụ `https://your-site.example/booking/payment`.
+- Khởi động lại server và Expo sau khi đổi env. App tạo URL thanh toán từ số tiền đã lưu trong booking; chỉ callback có chữ ký hợp lệ, đúng merchant, số tiền VND và booking mới được xử lý. Client không tự quyết định kết quả thanh toán.
+- VNPay Sandbox là môi trường thử nghiệm, không dùng để thu tiền thật. `/api/payments/vnpay/ipn` là callback server-to-server chính; Return đã xác thực cũng dùng cùng quy trình idempotent để phòng trường hợp IPN bị thiếu.
+- Nếu VNPay báo đã thu tiền trước khi booking hết hạn nhưng callback đến trễ, server chỉ khôi phục booking khi vẫn giữ được ghế một cách nguyên tử. Nếu giao dịch không thể cấp vé hoặc được thanh toán ngoài hạn, hệ thống ghi nhận đã thu tiền và đánh dấu booking cần đối soát/hoàn tiền; không xác nhận vé khi chưa giữ được ghế.
+- Ngrok miễn phí có thể chặn lần đầu trình duyệt quay lại bằng `ERR_NGROK_6024`; ứng dụng giữ trang thanh toán mở và tiếp tục hỏi trạng thái từ server, nhưng cảnh báo thuộc về ngrok. Bấm **Visit Site** một lần trên trang Return hoặc dùng tunnel/domain HTTPS không có interstitial. IPN server-to-server vẫn cần bật đúng URL trong merchant portal VNPay.
 
 ## 3. Chạy 3 phần
 

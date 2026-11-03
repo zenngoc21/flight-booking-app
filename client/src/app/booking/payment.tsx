@@ -52,6 +52,10 @@ function showMessage(title: string, message: string) {
   }
 }
 
+function wait(milliseconds: number) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
 export default function PaymentScreen() {
   const router = useRouter();
   const { data: settings } = usePublicSettings();
@@ -64,6 +68,38 @@ export default function PaymentScreen() {
   const [error, setError] = useState('');
   const [checkingExpiry, setCheckingExpiry] = useState(false);
   const [expiryCheckError, setExpiryCheckError] = useState('');
+
+  const applyPaymentStatus = (latestBooking: BookingPaymentInfo) => {
+    setBooking(latestBooking);
+
+    if (latestBooking.paymentStatus === 'paid') {
+      if (latestBooking.bookingStatus === 'confirmed') {
+        router.replace({
+          pathname: '/booking/success',
+          params: { bookingId: latestBooking.id },
+        } as any);
+      } else {
+        showMessage(
+          'Cần đối soát giao dịch',
+          'VNPay đã ghi nhận thanh toán nhưng booking chưa thể xác nhận. Vui lòng liên hệ hỗ trợ và cung cấp mã đặt vé.',
+        );
+      }
+      return true;
+    }
+
+    if (
+      latestBooking.paymentStatus === 'failed' ||
+      latestBooking.bookingStatus === 'cancelled'
+    ) {
+      router.replace({
+        pathname: '/booking/failed',
+        params: { bookingId: latestBooking.id },
+      } as any);
+      return true;
+    }
+
+    return false;
+  };
 
   const loadBooking = useCallback(async () => {
     if (!bookingId) {
@@ -193,23 +229,114 @@ export default function PaymentScreen() {
       return;
     }
 
+    let paymentWindow: Window | null = null;
+    if (Platform.OS === 'web') {
+      paymentWindow = window.open('about:blank', '_blank');
+      if (!paymentWindow) {
+        showMessage(
+          'Cần cho phép cửa sổ bật lên',
+          'Trình duyệt đang chặn cửa sổ thanh toán. Hãy cho phép cửa sổ bật lên cho trang này rồi thử lại.',
+        );
+        return;
+      }
+    }
+
     try {
       setPaying(true);
       const redirectUrl =
-        process.env.EXPO_PUBLIC_VNPAY_CLIENT_RETURN_URL ||
-        ExpoLinking.createURL('/booking/payment');
+        Platform.OS === 'web'
+          ? process.env.EXPO_PUBLIC_VNPAY_WEB_RETURN_URL ||
+            new URL('/booking/payment', window.location.origin).toString()
+          : process.env.EXPO_PUBLIC_VNPAY_CLIENT_RETURN_URL ||
+            ExpoLinking.createURL('/booking/payment');
       const { data } = await createVnpayPayment(booking.id, redirectUrl);
 
       if (Platform.OS === 'web') {
-        window.location.assign(data.paymentUrl);
+        if (!paymentWindow || paymentWindow.closed) {
+          throw new Error('Cửa sổ thanh toán đã bị đóng trước khi mở VNPay.');
+        }
+        paymentWindow.location.href = data.paymentUrl;
+
+        const deadline =
+          Date.now() +
+          Math.min(5 * 60 * 1000, Math.max(60 * 1000, (remaining + 30) * 1000));
+        let latestBooking = booking;
+        while (Date.now() < deadline) {
+          latestBooking = await getBookingPaymentInfo(booking.id);
+          if (applyPaymentStatus(latestBooking)) {
+            if (!paymentWindow.closed) paymentWindow.close();
+            return;
+          }
+          if (paymentWindow.closed) break;
+          await wait(3000);
+        }
+
+        latestBooking = await getBookingPaymentInfo(booking.id);
+        setBooking(latestBooking);
+        if (
+          latestBooking.paymentStatus === 'pending' &&
+          latestBooking.bookingStatus === 'pending'
+        ) {
+          showMessage(
+            'Đang chờ xác nhận',
+            'Trang thanh toán VNPay được mở ở cửa sổ riêng. Nếu bạn đã hoàn tất giao dịch, hãy giữ trang này mở để hệ thống cập nhật trạng thái.',
+          );
+        } else {
+          applyPaymentStatus(latestBooking);
+        }
         return;
       }
 
-      const result = await WebBrowser.openAuthSessionAsync(
+      const authSessionPromise = WebBrowser.openAuthSessionAsync(
         data.paymentUrl,
         redirectUrl,
       );
+      let stopPolling = false;
+      const statusMonitor = (async () => {
+        try {
+          for (let attempt = 0; attempt < 100; attempt += 1) {
+            await wait(3000);
+            if (stopPolling) return null;
 
+            const latestBooking = await getBookingPaymentInfo(booking.id);
+            if (
+              latestBooking.paymentStatus !== 'pending' ||
+              latestBooking.bookingStatus !== 'pending'
+            ) {
+              return latestBooking;
+            }
+          }
+          return null;
+        } catch (monitorError) {
+          return {
+            error:
+              monitorError instanceof Error
+                ? monitorError
+                : new Error('Không thể kiểm tra trạng thái thanh toán.'),
+          };
+        }
+      })();
+
+      const outcome = await Promise.race([
+        authSessionPromise.then((result) => ({ type: 'browser' as const, result })),
+        statusMonitor.then((latestBooking) => ({
+          type: 'status' as const,
+          latestBooking,
+        })),
+      ]);
+      if (outcome.type === 'status' && outcome.latestBooking) {
+        stopPolling = true;
+        if ('error' in outcome.latestBooking) {
+          WebBrowser.dismissAuthSession();
+          throw outcome.latestBooking.error;
+        }
+        WebBrowser.dismissAuthSession();
+        applyPaymentStatus(outcome.latestBooking);
+        return;
+      }
+      stopPolling = true;
+      const result =
+        outcome.type === 'browser' ? outcome.result : await authSessionPromise;
       if (result.type === 'success') {
         let latestBooking: BookingPaymentInfo | null = null;
         for (let attempt = 0; attempt < 8; attempt += 1) {
@@ -224,27 +351,7 @@ export default function PaymentScreen() {
         }
 
         if (latestBooking) {
-          setBooking(latestBooking);
-          if (
-            latestBooking.paymentStatus === 'paid' &&
-            latestBooking.bookingStatus === 'confirmed'
-          ) {
-            router.replace({
-              pathname: '/booking/success',
-              params: { bookingId: booking.id },
-            } as any);
-            return;
-          }
-          if (
-            latestBooking.paymentStatus === 'failed' ||
-            latestBooking.bookingStatus === 'cancelled'
-          ) {
-            router.replace({
-              pathname: '/booking/failed',
-              params: { bookingId: booking.id },
-            } as any);
-            return;
-          }
+          if (applyPaymentStatus(latestBooking)) return;
           showMessage(
             'Đang xác minh',
             'VNPay đã quay lại ứng dụng nhưng máy chủ chưa nhận IPN. Trạng thái sẽ được cập nhật khi VNPay xác nhận.',
@@ -259,6 +366,7 @@ export default function PaymentScreen() {
           ? err.message
           : 'Không thể khởi tạo giao dịch VNPay.';
 
+      if (paymentWindow && !paymentWindow.closed) paymentWindow.close();
       showMessage('Thanh toán VNPay', message);
       await loadBooking();
     } finally {
@@ -486,9 +594,15 @@ export default function PaymentScreen() {
           </>
         )}
 
-        {isPaid && (
+        {isPaid && booking.bookingStatus === 'confirmed' && (
           <Text style={styles.success}>
             ✓ Thanh toán thành công. Vé của bạn đã được xác nhận.
+          </Text>
+        )}
+
+        {isPaid && booking.bookingStatus !== 'confirmed' && (
+          <Text style={styles.error}>
+            VNPay đã ghi nhận thanh toán nhưng booking chưa thể xác nhận. Vui lòng liên hệ hỗ trợ và cung cấp mã đặt vé này để được đối soát hoặc hoàn tiền.
           </Text>
         )}
 
@@ -504,7 +618,7 @@ export default function PaymentScreen() {
           </Text>
         )}
 
-        {booking.bookingStatus === 'cancelled' && !isFailed && (
+        {booking.bookingStatus === 'cancelled' && !isFailed && !isPaid && (
           <Text style={styles.error}>Booking đã bị hủy.</Text>
         )}
       </View>
@@ -513,7 +627,7 @@ export default function PaymentScreen() {
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Thanh toán VNPay Sandbox</Text>
           <Text style={styles.muted}>
-            Bạn sẽ được chuyển đến cổng thanh toán thử nghiệm VNPay. Giao dịch sandbox không trừ tiền thật.
+            Cổng VNPay Sandbox sẽ mở riêng. Trên web, hãy giữ trang này mở để ứng dụng tự cập nhật trạng thái thanh toán. Giao dịch thử nghiệm không trừ tiền thật.
           </Text>
 
           <TouchableOpacity

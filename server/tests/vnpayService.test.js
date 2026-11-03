@@ -1,6 +1,8 @@
 const {
   createPaymentUrl,
+  formatVnpayDate,
   isValidSignature,
+  parseVnpayDate,
   signParameters,
   validateClientReturnUrl,
 } = require('../src/services/vnpayService');
@@ -14,6 +16,8 @@ describe('VNPay service', () => {
       'VNPAY_HASH_SECRET',
       'VNPAY_RETURN_URL',
       'VNPAY_IPN_URL',
+      'VNPAY_WEB_RETURN_URL',
+      'NODE_ENV',
     ]) {
       savedEnvironment[key] = process.env[key];
     }
@@ -70,6 +74,17 @@ describe('VNPay service', () => {
     expect(isValidSignature({ ...callback, vnp_Amount: '200000' }, 'test-secret')).toBe(false);
   });
 
+  it('parses VNPay timestamps as Vietnam local time and rejects invalid dates', () => {
+    expect(parseVnpayDate('20260102123456').toISOString()).toBe(
+      '2026-01-02T05:34:56.000Z',
+    );
+    expect(parseVnpayDate('20260230123456')).toBeNull();
+    expect(parseVnpayDate('not-a-date')).toBeNull();
+    expect(formatVnpayDate(new Date('2026-01-02T05:34:56.000Z'))).toBe(
+      '20260102123456',
+    );
+  });
+
   it('rejects non-VND or expired bookings', () => {
     expect(() => createPaymentUrl({
       booking: {
@@ -96,8 +111,24 @@ describe('VNPay service', () => {
     expect(
       validateClientReturnUrl('exp://192.168.1.10:8081/--/booking/payment'),
     ).toBe('exp://192.168.1.10:8081/--/booking/payment');
+    expect(
+      validateClientReturnUrl('http://localhost:8081/booking/payment'),
+    ).toBe('http://localhost:8081/booking/payment');
     expect(() => validateClientReturnUrl('https://attacker.example/steal')).toThrow(
       /không thuộc ứng dụng/,
     );
+  });
+
+  it('only accepts the explicitly configured web return URL in production', () => {
+    process.env.NODE_ENV = 'production';
+    process.env.VNPAY_WEB_RETURN_URL =
+      'https://flight.example.test/booking/payment';
+
+    expect(
+      validateClientReturnUrl('https://flight.example.test/booking/payment'),
+    ).toBe('https://flight.example.test/booking/payment');
+    expect(() =>
+      validateClientReturnUrl('https://attacker.example/booking/payment'),
+    ).toThrow(/phải trùng cấu hình/);
   });
 });
