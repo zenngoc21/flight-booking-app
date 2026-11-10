@@ -8,6 +8,7 @@ import {
   StyleSheet,
   Text,
   View,
+  ImageBackground,
 } from 'react-native';
 
 import { getFlightById } from '../../services/api';
@@ -100,9 +101,23 @@ export default function FlightDetailScreen() {
           <Text style={styles.backText}>‹ Quay lại tìm kiếm</Text>
         </Pressable>
 
+        <ImageBackground
+          source={require('../../../assets/images/banners/promotion-banner.jpg')}
+          resizeMode="cover"
+          style={styles.detailBanner}
+          imageStyle={styles.detailBannerArtwork}
+        >
+          <View style={styles.detailBannerShade} />
+          <Text style={styles.detailBannerLabel}>SKYHAVEN · FLIGHT EXPERIENCE</Text>
+          <Text style={styles.detailBannerTitle}>Sẵn sàng cất cánh?</Text>
+          <Text style={styles.detailBannerSubtitle}>
+            Hành trình của bạn bắt đầu từ đây.
+          </Text>
+        </ImageBackground>
+
         {flightQuery.isLoading && (
           <View style={styles.stateCard}>
-            <ActivityIndicator size="large" color="#246BFD" />
+            <ActivityIndicator size="large" color="#2878B9" />
             <Text style={styles.stateText}>
               Đang tải thông tin chuyến bay...
             </Text>
@@ -315,7 +330,7 @@ export default function FlightDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F3F6FB',
+    backgroundColor: '#F7FAFC',
   },
   content: {
     padding: 18,
@@ -327,31 +342,67 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   backText: {
-    color: '#175CD3',
+    color: '#2878B9',
     fontSize: 15,
     fontWeight: '700',
+  },
+  detailBanner: {
+    minHeight: 150,
+    padding: 18,
+    borderRadius: 20,
+    justifyContent: 'center',
+    overflow: 'hidden',
+    marginBottom: 16,
+  },
+  detailBannerArtwork: {
+    borderRadius: 20,
+  },
+  detailBannerShade: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: 'rgba(18, 59, 93, 0.62)',
+  },
+  detailBannerLabel: {
+    color: '#E9CC8E',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+  },
+  detailBannerTitle: {
+    color: '#FFFFFF',
+    fontSize: 22,
+    fontWeight: '800',
+    marginTop: 7,
+  },
+  detailBannerSubtitle: {
+    color: '#EAF4FC',
+    fontSize: 12,
+    marginTop: 5,
   },
   heroCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 18,
     padding: 20,
     borderWidth: 1,
-    borderColor: '#EAECF0',
+    borderColor: '#DCE8F1',
   },
   eyebrow: {
-    color: '#246BFD',
+    color: '#2878B9',
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 1,
   },
   airlineName: {
-    color: '#172B4D',
+    color: '#123B5D',
     fontSize: 23,
     fontWeight: '800',
     marginTop: 12,
   },
   muted: {
-    color: '#667085',
+    color: '#62798B',
     fontSize: 13,
     marginTop: 5,
   },
@@ -368,12 +419,12 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   airportCode: {
-    color: '#172B4D',
+    color: '#123B5D',
     fontSize: 27,
     fontWeight: '800',
   },
   city: {
-    color: '#667085',
+    color: '#62798B',
     fontSize: 12,
     marginTop: 5,
   },
@@ -383,7 +434,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   plane: {
-    color: '#246BFD',
+    color: '#2878B9',
     fontSize: 22,
     marginBottom: 5,
   },
@@ -394,12 +445,12 @@ const styles = StyleSheet.create({
   },
   pricePanel: {
     borderTopWidth: 1,
-    borderTopColor: '#EAECF0',
+    borderTopColor: '#DCE8F1',
     marginTop: 25,
     paddingTop: 17,
   },
   price: {
-    color: '#175CD3',
+    color: '#2878B9',
     fontSize: 23,
     fontWeight: '800',
     marginTop: 5,
@@ -410,10 +461,10 @@ const styles = StyleSheet.create({
     padding: 18,
     marginTop: 15,
     borderWidth: 1,
-    borderColor: '#EAECF0',
+    borderColor: '#DCE8F1',
   },
   sectionTitle: {
-    color: '#172B4D',
+    color: '#123B5D',
     fontSize: 17,
     fontWeight: '800',
     marginBottom: 8,
@@ -427,7 +478,7 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: '#246BFD',
+    backgroundColor: '#2878B9',
     marginTop: 4,
     marginRight: 12,
   },
@@ -450,11 +501,11 @@ const styles = StyleSheet.create({
     marginTop: 3,
   },
   infoLabel: {
-    color: '#667085',
+    color: '#62798B',
     fontSize: 13,
   },
   dateTime: {
-    color: '#172B4D',
+    color: '#123B5D',
     fontSize: 16,
     fontWeight: '700',
     marginTop: 5,
@@ -467,7 +518,7 @@ const styles = StyleSheet.create({
     marginTop: 15,
   },
   infoValue: {
-    color: '#344054',
+    color: '#526C80',
     fontSize: 14,
     flexShrink: 1,
     textAlign: 'right',
@@ -493,7 +544,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   primaryButton: {
-    backgroundColor: '#246BFD',
+    backgroundColor: '#2878B9',
     borderRadius: 12,
     minHeight: 52,
     alignItems: 'center',
@@ -513,7 +564,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   stateText: {
-    color: '#667085',
+    color: '#62798B',
     marginTop: 12,
   },
   errorCard: {

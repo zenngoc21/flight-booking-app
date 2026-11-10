@@ -385,13 +385,21 @@ async function requestJson<T>(
   }
 
   if (!response.ok) {
-    throw new Error(
+    throw new ApiRequestError(
       result?.message ??
         `Yêu cầu thất bại (HTTP ${response.status})`,
+      response.status,
     );
   }
 
   return result as T;
+}
+
+export class ApiRequestError extends Error {
+  constructor(message: string, public readonly status: number) {
+    super(message);
+    this.name = 'ApiRequestError';
+  }
 }
 
 /**
@@ -739,4 +747,38 @@ export function getMyBookings(
       headers: authHeaders(token),
     },
   );
+}
+
+// =========================================================
+
+export interface AIChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface AIChatResponse {
+  success: boolean;
+  reply: string;
+}
+
+export async function sendAIMessage(
+  message: string,
+  history: AIChatMessage[] = [],
+): Promise<AIChatResponse> {
+  const result = await authenticatedRequestJson<AIChatResponse>(
+    `${getApiBaseUrl()}/ai/chat`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        message: message.trim(),
+        history,
+      }),
+    },
+  );
+
+  if (!result?.success || typeof result.reply !== 'string') {
+    throw new Error('Phản hồi từ SKYHAVEN AI không hợp lệ.');
+  }
+
+  return result;
 }

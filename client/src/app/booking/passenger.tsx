@@ -475,7 +475,7 @@ export default function PassengerScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#2563EB" />
+        <ActivityIndicator size="large" color="#2878B9" />
         <Text style={styles.muted}>Đang tải thông tin...</Text>
       </View>
     );
@@ -803,7 +803,7 @@ export default function PassengerScreen() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  container: { flex: 1, backgroundColor: '#F8FAFC' },
+  container: { flex: 1, backgroundColor: '#F7FAFC' },
   content: {
     width: '100%',
     maxWidth: 720,
@@ -819,10 +819,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   backButton: { alignSelf: 'flex-start', marginBottom: 18 },
-  backText: { color: '#2563EB', fontSize: 16, fontWeight: '600' },
-  title: { color: '#0F172A', fontSize: 26, fontWeight: '800' },
+  backText: { color: '#2878B9', fontSize: 16, fontWeight: '600' },
+  title: { color: '#123B5D', fontSize: 26, fontWeight: '800' },
   subtitle: {
-    color: '#64748B',
+    color: '#62798B',
     fontSize: 14,
     lineHeight: 21,
     marginTop: 7,
@@ -831,7 +831,7 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#DCE8F1',
     borderRadius: 16,
     padding: 16,
     marginBottom: 14,
@@ -851,13 +851,13 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   selectedSeats: {
-    color: '#2563EB',
+    color: '#2878B9',
     fontSize: 18,
     fontWeight: '800',
     marginBottom: 5,
   },
   label: {
-    color: '#334155',
+    color: '#526C80',
     fontSize: 13,
     fontWeight: '600',
     marginBottom: 7,
@@ -868,7 +868,7 @@ const styles = StyleSheet.create({
     borderColor: '#CBD5E1',
     borderRadius: 10,
     backgroundColor: '#FFFFFF',
-    color: '#0F172A',
+    color: '#123B5D',
     paddingHorizontal: 13,
     fontSize: 15,
     marginBottom: 15,
@@ -885,11 +885,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   genderOptionSelected: {
-    borderColor: '#2563EB',
+    borderColor: '#2878B9',
     backgroundColor: '#EFF6FF',
   },
-  genderText: { color: '#475569', fontWeight: '600' },
-  genderTextSelected: { color: '#1D4ED8' },
+  genderText: { color: '#526C80', fontWeight: '600' },
+  genderTextSelected: { color: '#2878B9' },
   optionRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -909,10 +909,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#FFFFFF',
   },
-  counterText: { color: '#1D4ED8', fontSize: 20, fontWeight: '700' },
+  counterText: { color: '#2878B9', fontSize: 20, fontWeight: '700' },
   counterValue: {
     minWidth: 18,
-    color: '#0F172A',
+    color: '#123B5D',
     textAlign: 'center',
     fontWeight: '700',
   },
@@ -920,7 +920,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
+    borderTopColor: '#DCE8F1',
     paddingTop: 16,
     marginTop: 14,
   },
@@ -934,7 +934,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 11,
   },
-  checkboxSelected: { borderColor: '#2563EB', backgroundColor: '#2563EB' },
+  checkboxSelected: { borderColor: '#2878B9', backgroundColor: '#2878B9' },
   checkmark: { color: '#FFFFFF', fontSize: 15, fontWeight: '800' },
   notice: {
     flexDirection: 'row',
@@ -947,26 +947,26 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   noticeText: { flex: 1, color: '#92400E', fontSize: 13 },
-  noticeLink: { color: '#1D4ED8', fontWeight: '700' },
+  noticeLink: { color: '#2878B9', fontWeight: '700' },
   primaryButton: {
     minHeight: 50,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 12,
-    backgroundColor: '#2563EB',
+    backgroundColor: '#2878B9',
     paddingHorizontal: 18,
     marginTop: 4,
   },
   primaryButtonText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
   disabled: { opacity: 0.6 },
   footnote: {
-    color: '#64748B',
+    color: '#62798B',
     fontSize: 12,
     lineHeight: 18,
     textAlign: 'center',
     marginTop: 12,
   },
-  muted: { color: '#64748B', fontSize: 13, lineHeight: 19 },
+  muted: { color: '#62798B', fontSize: 13, lineHeight: 19 },
   error: {
     color: '#B91C1C',
     textAlign: 'center',

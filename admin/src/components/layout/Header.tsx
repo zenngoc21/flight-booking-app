@@ -49,7 +49,7 @@ export default function Header({
   };
 
   return (
-    <AntHeader className="!bg-white !px-5 flex items-center justify-between shadow-sm">
+    <AntHeader className="admin-topbar !px-5 flex items-center justify-between">
       <Space>
         <Button
           type="text"

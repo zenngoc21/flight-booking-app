@@ -1,6 +1,19 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+
+import {
+  InfoRow,
+  PremiumCard,
+  PrimaryButton,
+  RouteLine,
+  SecondaryButton,
+  SectionLabel,
+  StateHero,
+  TextLink,
+  TicketDivider,
+} from '@/components/premium-ui';
+import { PremiumPalette } from '@/constants/theme';
 import { getMyBookings, type BookingHistoryItem } from '../../services/api';
 import { getSavedToken } from '../../services/authStorage';
 import { cacheOfflineTicket } from '../../services/offlineTickets';
@@ -33,18 +46,79 @@ export default function PaymentSuccessScreen() {
     } catch (e) { if (active) setError(e instanceof Error ? e.message : 'Không thể xác minh vé.'); }
     finally { if (active) setLoading(false); }
   })(); return () => { active = false; }; }, [bookingId]);
-  if (loading) return <View style={s.center}><ActivityIndicator size="large"/><Text style={s.muted}>Đang xác minh thanh toán từ máy chủ…</Text></View>;
+
+  if (loading) {
+    return (
+      <View style={s.center}>
+        <ActivityIndicator size="large" color={PremiumPalette.sky} />
+        <Text style={s.muted}>Đang xác minh thanh toán từ máy chủ…</Text>
+      </View>
+    );
+  }
+
   const itinerary = booking ? getBookingItinerary(booking) : [];
-  return <ScrollView contentContainerStyle={s.container}>
-    <Text style={s.emoji}>{booking ? '✅' : '⚠️'}</Text>
-    <Text style={s.title}>{booking ? 'Đặt vé thành công!' : 'Chưa thể xác nhận vé'}</Text>
-    <Text style={s.muted}>{booking ? 'Thanh toán đã được máy chủ xác nhận.' : error}</Text>
-    {booking && error ? <Text style={s.warning}>{error}</Text> : null}
-    {booking && !error ? <Text style={s.muted}>Vé đã được lưu để xem offline.</Text> : null}
-    {booking && <View style={s.card}><Text style={s.label}>MÃ ĐẶT CHỖ CHUNG</Text><Text style={s.pnr}>{booking.bookingCode}</Text>{itinerary.map((leg,index)=><View key={`${leg.flight.flightNumber}-${index}`}><Text style={s.route}>Chặng {index+1}: {leg.flight.origin?.code} → {leg.flight.destination?.code}</Text><Text style={s.muted}>{leg.flight.flightNumber} · Ghế {leg.seats.join(', ')||'Chưa chọn'}</Text></View>)}<Text style={s.price}>Tổng đã thanh toán: {Number(booking.pricing.total).toLocaleString('vi-VN')} {booking.pricing.currency}</Text></View>}
-    {booking && <TouchableOpacity style={s.primary} onPress={() => router.push({ pathname: '/booking/ticket', params: { bookingId: booking._id } })}><Text style={s.primaryText}>Xem vé điện tử & QR</Text></TouchableOpacity>}
-    <TouchableOpacity style={s.secondary} onPress={() => router.replace('/booking-history')}><Text style={s.secondaryText}>Lịch sử đặt vé</Text></TouchableOpacity>
-    <TouchableOpacity onPress={() => router.replace('/')}><Text style={s.link}>Về trang chủ</Text></TouchableOpacity>
-  </ScrollView>;
+
+  return (
+    <ScrollView contentContainerStyle={s.container}>
+      <StateHero
+        glyph={booking ? '✓' : '!'}
+        tone={booking ? 'success' : 'warning'}
+        title={booking ? 'Đặt vé thành công!' : 'Chưa thể xác nhận vé'}
+        body={booking ? 'Thanh toán đã được máy chủ xác nhận.' : error}
+      >
+        {booking && error ? <Text style={s.warning}>{error}</Text> : null}
+        {booking && !error ? <Text style={s.hint}>Vé đã được lưu để xem offline.</Text> : null}
+      </StateHero>
+
+      {booking && (
+        <PremiumCard style={s.ticket}>
+          <SectionLabel>MÃ ĐẶT CHỖ CHUNG</SectionLabel>
+          <Text style={s.pnr}>{booking.bookingCode}</Text>
+          {itinerary.map((leg, index) => (
+            <View key={`${leg.flight.flightNumber}-${index}`} style={{ marginTop: 16 }}>
+              <Text style={s.legLabel}>CHẶNG {index + 1} · {leg.flight.flightNumber}</Text>
+              <RouteLine
+                from={leg.flight.origin?.code}
+                to={leg.flight.destination?.code}
+                fromCity={leg.flight.origin?.city}
+                toCity={leg.flight.destination?.city}
+              />
+              <InfoRow label="Ghế" value={leg.seats.join(', ') || 'Chưa chọn'} />
+            </View>
+          ))}
+          <TicketDivider />
+          <View style={s.totalRow}>
+            <Text style={s.totalLabel}>Tổng đã thanh toán</Text>
+            <Text style={s.total}>{Number(booking.pricing.total).toLocaleString('vi-VN')} {booking.pricing.currency}</Text>
+          </View>
+        </PremiumCard>
+      )}
+
+      <View style={s.actions}>
+        {booking && (
+          <PrimaryButton
+            label="Xem vé điện tử & QR"
+            onPress={() => router.push({ pathname: '/booking/ticket', params: { bookingId: booking._id } })}
+          />
+        )}
+        <SecondaryButton label="Lịch sử đặt vé" onPress={() => router.replace('/booking-history')} />
+        <TextLink label="Về trang chủ" onPress={() => router.replace('/')} />
+      </View>
+    </ScrollView>
+  );
 }
-const s=StyleSheet.create({container:{flexGrow:1,alignItems:'center',justifyContent:'center',padding:24,backgroundColor:'#F4F7FB'},center:{flex:1,alignItems:'center',justifyContent:'center',padding:24},emoji:{fontSize:60,marginBottom:12},title:{fontSize:27,fontWeight:'800',color:'#172B4D',textAlign:'center'},muted:{color:'#64748B',textAlign:'center',marginTop:8,lineHeight:21},warning:{color:'#B45309',textAlign:'center',marginTop:8,lineHeight:21},card:{width:'100%',backgroundColor:'#FFF',borderRadius:18,padding:20,marginVertical:24,borderWidth:1,borderColor:'#E2E8F0'},label:{fontSize:11,color:'#64748B',fontWeight:'700',letterSpacing:1},pnr:{fontSize:28,fontWeight:'900',color:'#2563EB',marginTop:6},route:{fontSize:20,fontWeight:'800',color:'#172B4D',marginTop:18},price:{fontSize:20,fontWeight:'800',color:'#172B4D',marginTop:14},primary:{width:'100%',padding:16,borderRadius:12,backgroundColor:'#2563EB',alignItems:'center',marginBottom:10},primaryText:{color:'#FFF',fontWeight:'800'},secondary:{width:'100%',padding:15,borderRadius:12,borderWidth:1,borderColor:'#CBD5E1',alignItems:'center'},secondaryText:{fontWeight:'700',color:'#334155'},link:{marginTop:18,color:'#2563EB',fontWeight:'700'}});
+
+const s = StyleSheet.create({
+  container: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', padding: 20, paddingBottom: 40, backgroundColor: PremiumPalette.canvas },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, backgroundColor: PremiumPalette.canvas },
+  muted: { color: PremiumPalette.muted, textAlign: 'center', marginTop: 12, lineHeight: 21 },
+  hint: { color: PremiumPalette.muted, textAlign: 'center', marginTop: 10, fontSize: 12 },
+  warning: { color: '#B45309', textAlign: 'center', marginTop: 10, lineHeight: 20, fontSize: 12 },
+  ticket: { width: '100%', maxWidth: 520, marginTop: 24 },
+  pnr: { fontSize: 30, fontWeight: '900', color: PremiumPalette.sky, letterSpacing: 2 },
+  legLabel: { color: PremiumPalette.muted, fontSize: 10, fontWeight: '800', letterSpacing: 1 },
+  totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
+  totalLabel: { color: PremiumPalette.muted, fontSize: 13 },
+  total: { color: PremiumPalette.navy, fontSize: 20, fontWeight: '900' },
+  actions: { width: '100%', maxWidth: 520, gap: 10, marginTop: 22 },
+});

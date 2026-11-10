@@ -9,6 +9,7 @@ import {
   StyleSheet,
   Alert,
   Platform,
+  ImageBackground,
 } from 'react-native';
 import * as ExpoLinking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
@@ -59,47 +60,54 @@ function wait(milliseconds: number) {
 export default function PaymentScreen() {
   const router = useRouter();
   const { data: settings } = usePublicSettings();
-  const { bookingId } = useLocalSearchParams<{ bookingId: string }>();
+  const { bookingId, gatewayStatus } = useLocalSearchParams<{
+    bookingId: string;
+    gatewayStatus?: string;
+  }>();
 
   const [booking, setBooking] = useState<BookingPaymentInfo | null>(null);
   const [remaining, setRemaining] = useState(0);
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);
   const [error, setError] = useState('');
+  const [paymentNotice, setPaymentNotice] = useState('');
   const [checkingExpiry, setCheckingExpiry] = useState(false);
   const [expiryCheckError, setExpiryCheckError] = useState('');
 
-  const applyPaymentStatus = (latestBooking: BookingPaymentInfo) => {
-    setBooking(latestBooking);
+  const applyPaymentStatus = useCallback(
+    (latestBooking: BookingPaymentInfo) => {
+      setBooking(latestBooking);
 
-    if (latestBooking.paymentStatus === 'paid') {
-      if (latestBooking.bookingStatus === 'confirmed') {
+      if (latestBooking.paymentStatus === 'paid') {
+        if (latestBooking.bookingStatus === 'confirmed') {
+          router.replace({
+            pathname: '/booking/success',
+            params: { bookingId: latestBooking.id },
+          } as any);
+        } else {
+          showMessage(
+            'Cần đối soát giao dịch',
+            'VNPay đã ghi nhận thanh toán nhưng booking chưa thể xác nhận. Vui lòng liên hệ hỗ trợ và cung cấp mã đặt vé.',
+          );
+        }
+        return true;
+      }
+
+      if (
+        latestBooking.paymentStatus === 'failed' ||
+        latestBooking.bookingStatus === 'cancelled'
+      ) {
         router.replace({
-          pathname: '/booking/success',
+          pathname: '/booking/failed',
           params: { bookingId: latestBooking.id },
         } as any);
-      } else {
-        showMessage(
-          'Cần đối soát giao dịch',
-          'VNPay đã ghi nhận thanh toán nhưng booking chưa thể xác nhận. Vui lòng liên hệ hỗ trợ và cung cấp mã đặt vé.',
-        );
+        return true;
       }
-      return true;
-    }
 
-    if (
-      latestBooking.paymentStatus === 'failed' ||
-      latestBooking.bookingStatus === 'cancelled'
-    ) {
-      router.replace({
-        pathname: '/booking/failed',
-        params: { bookingId: latestBooking.id },
-      } as any);
-      return true;
-    }
-
-    return false;
-  };
+      return false;
+    },
+    [router],
+  );
 
   const loadBooking = useCallback(async () => {
     if (!bookingId) {
@@ -111,7 +119,7 @@ export default function PaymentScreen() {
     try {
       const result = await getBookingPaymentInfo(bookingId);
 
-      setBooking(result);
+      applyPaymentStatus(result);
       setRemaining(getRemainingSeconds(result.expiresAt));
       setError('');
     } catch (err) {
@@ -123,7 +131,7 @@ export default function PaymentScreen() {
     } finally {
       setLoading(false);
     }
-  }, [bookingId]);
+  }, [applyPaymentStatus, bookingId]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -131,7 +139,7 @@ export default function PaymentScreen() {
     }, 0);
 
     return () => clearTimeout(timer);
-  }, [loadBooking]);
+  }, [loadBooking, gatewayStatus]);
 
   useEffect(() => {
     if (!booking?.expiresAt || booking.bookingStatus !== 'pending') {
@@ -217,6 +225,7 @@ export default function PaymentScreen() {
 
   const handleVnpayPayment = async () => {
     if (!booking || paying) return;
+    setPaymentNotice('');
 
     if (booking.bookingStatus !== 'pending') {
       showMessage('Thông báo', 'Booking không còn chờ thanh toán.');
@@ -248,7 +257,7 @@ export default function PaymentScreen() {
           ? process.env.EXPO_PUBLIC_VNPAY_WEB_RETURN_URL ||
             new URL('/booking/payment', window.location.origin).toString()
           : process.env.EXPO_PUBLIC_VNPAY_CLIENT_RETURN_URL ||
-            ExpoLinking.createURL('/booking/payment');
+            ExpoLinking.createURL('booking/payment');
       const { data } = await createVnpayPayment(booking.id, redirectUrl);
 
       if (Platform.OS === 'web') {
@@ -291,72 +300,35 @@ export default function PaymentScreen() {
         data.paymentUrl,
         redirectUrl,
       );
-      let stopPolling = false;
-      const statusMonitor = (async () => {
-        try {
-          for (let attempt = 0; attempt < 100; attempt += 1) {
-            await wait(3000);
-            if (stopPolling) return null;
+      const result = await authSessionPromise;
+      const statusCheckAttempts = result.type === 'success' ? 12 : 1;
+      let latestBooking: BookingPaymentInfo | null = null;
 
-            const latestBooking = await getBookingPaymentInfo(booking.id);
-            if (
-              latestBooking.paymentStatus !== 'pending' ||
-              latestBooking.bookingStatus !== 'pending'
-            ) {
-              return latestBooking;
-            }
-          }
-          return null;
-        } catch (monitorError) {
-          return {
-            error:
-              monitorError instanceof Error
-                ? monitorError
-                : new Error('Không thể kiểm tra trạng thái thanh toán.'),
-          };
+      for (let attempt = 0; attempt < statusCheckAttempts; attempt += 1) {
+        latestBooking = await getBookingPaymentInfo(booking.id);
+        if (
+          latestBooking.paymentStatus !== 'pending' ||
+          latestBooking.bookingStatus !== 'pending'
+        ) {
+          break;
         }
-      })();
-
-      const outcome = await Promise.race([
-        authSessionPromise.then((result) => ({ type: 'browser' as const, result })),
-        statusMonitor.then((latestBooking) => ({
-          type: 'status' as const,
-          latestBooking,
-        })),
-      ]);
-      if (outcome.type === 'status' && outcome.latestBooking) {
-        stopPolling = true;
-        if ('error' in outcome.latestBooking) {
-          WebBrowser.dismissAuthSession();
-          throw outcome.latestBooking.error;
+        if (attempt + 1 < statusCheckAttempts) {
+          await wait(1500);
         }
-        WebBrowser.dismissAuthSession();
-        applyPaymentStatus(outcome.latestBooking);
-        return;
       }
-      stopPolling = true;
-      const result =
-        outcome.type === 'browser' ? outcome.result : await authSessionPromise;
-      if (result.type === 'success') {
-        let latestBooking: BookingPaymentInfo | null = null;
-        for (let attempt = 0; attempt < 8; attempt += 1) {
-          latestBooking = await getBookingPaymentInfo(booking.id);
-          if (
-            latestBooking.paymentStatus !== 'pending' ||
-            latestBooking.bookingStatus !== 'pending'
-          ) {
-            break;
-          }
-          await new Promise((resolve) => setTimeout(resolve, 1250));
-        }
 
-        if (latestBooking) {
-          if (applyPaymentStatus(latestBooking)) return;
-          showMessage(
-            'Đang xác minh',
-            'VNPay đã quay lại ứng dụng nhưng máy chủ chưa nhận IPN. Trạng thái sẽ được cập nhật khi VNPay xác nhận.',
+      if (latestBooking) {
+        if (applyPaymentStatus(latestBooking)) return;
+        if (result.type === 'success') {
+          setPaymentNotice(
+            'Bạn đã quay lại từ VNPay. Máy chủ chưa xác nhận giao dịch; hãy kiểm tra lại trạng thái sau ít giây.',
+          );
+        } else {
+          setPaymentNotice(
+            'Bạn đã đóng trang VNPay. Nếu đã thanh toán, hãy kiểm tra lại trạng thái sau ít giây.',
           );
         }
+        setBooking(latestBooking);
       } else {
         await loadBooking();
       }
@@ -377,7 +349,7 @@ export default function PaymentScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#2563EB" />
+        <ActivityIndicator size="large" color="#2878B9" />
         <Text style={styles.muted}>Đang tải thông tin thanh toán...</Text>
       </View>
     );
@@ -416,11 +388,23 @@ export default function PaymentScreen() {
       style={styles.screen}
       contentContainerStyle={styles.content}
     >
-      <Text style={styles.title}>Thanh toán đặt vé</Text>
-      <Text style={styles.subtitle}>
-        Kiểm tra thông tin và thanh toán
-        {returnFlight ? ' cả hai chặng khứ hồi' : ' chuyến bay'} một lần.
-      </Text>
+      <ImageBackground
+        source={require('../../../assets/images/banners/hero-banner.jpg')}
+        resizeMode="cover"
+        style={styles.paymentHero}
+        imageStyle={styles.paymentHeroArtwork}
+      >
+        <View style={styles.paymentHeroShade} />
+        <Text style={styles.paymentHeroLabel}>THANH TOÁN AN TOÀN</Text>
+        <Text style={styles.title}>Hoàn tất hành trình</Text>
+        <Text style={styles.subtitle}>
+          Kiểm tra thông tin và thanh toán
+          {returnFlight ? ' cả hai chặng khứ hồi' : ' chuyến bay'} một lần.
+        </Text>
+        <View style={styles.sandboxBadge}>
+          <Text style={styles.sandboxBadgeText}>VNPAY · SANDBOX</Text>
+        </View>
+      </ImageBackground>
 
       <View style={styles.card}>
         <Text style={styles.label}>MÃ ĐẶT VÉ</Text>
@@ -627,8 +611,21 @@ export default function PaymentScreen() {
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Thanh toán VNPay Sandbox</Text>
           <Text style={styles.muted}>
-            Cổng VNPay Sandbox sẽ mở riêng. Trên web, hãy giữ trang này mở để ứng dụng tự cập nhật trạng thái thanh toán. Giao dịch thử nghiệm không trừ tiền thật.
+            Cổng VNPay Sandbox sẽ mở trong trình duyệt. Sau khi thanh toán, hãy quay lại ứng dụng để kiểm tra trạng thái. Giao dịch thử nghiệm không trừ tiền thật.
           </Text>
+          {!!paymentNotice && (
+            <>
+              <Text style={styles.info}>{paymentNotice}</Text>
+              <TouchableOpacity
+                style={styles.secondaryButton}
+                onPress={() => void loadBooking()}
+              >
+                <Text style={styles.secondaryButtonText}>
+                  Kiểm tra lại trạng thái
+                </Text>
+              </TouchableOpacity>
+            </>
+          )}
 
           <TouchableOpacity
             style={[
@@ -666,28 +663,68 @@ export default function PaymentScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#F3F6FB',
+    backgroundColor: '#F7FAFC',
   },
   content: {
     padding: 18,
     paddingBottom: 40,
+  },
+  paymentHero: {
+    minHeight: 205,
+    borderRadius: 22,
+    overflow: 'hidden',
+    padding: 20,
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  paymentHeroArtwork: {
+    borderRadius: 22,
+  },
+  paymentHeroShade: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: 'rgba(12, 39, 62, 0.66)',
+  },
+  paymentHeroLabel: {
+    color: '#E9CC8E',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.3,
+    marginBottom: 8,
+  },
+  sandboxBadge: {
+    alignSelf: 'flex-start',
+    borderColor: 'rgba(234, 244, 252, 0.55)',
+    borderWidth: 1,
+    borderRadius: 18,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    marginTop: 10,
+  },
+  sandboxBadgeText: {
+    color: '#EAF4FC',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.8,
   },
   center: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
-    backgroundColor: '#F3F6FB',
+    backgroundColor: '#F7FAFC',
   },
   title: {
     fontSize: 25,
     fontWeight: '800',
-    color: '#172B4D',
+    color: '#FFFFFF',
   },
   subtitle: {
-    color: '#64748B',
+    color: '#EAF4FC',
     marginTop: 6,
-    marginBottom: 18,
   },
   card: {
     backgroundColor: '#FFFFFF',
@@ -695,22 +732,22 @@ const styles = StyleSheet.create({
     padding: 18,
     marginBottom: 14,
     borderWidth: 1,
-    borderColor: '#E5EAF2',
+    borderColor: '#DCE8F1',
   },
   label: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#64748B',
+    color: '#62798B',
   },
   bookingCode: {
     fontSize: 21,
     fontWeight: '800',
-    color: '#1D4ED8',
+    color: '#2878B9',
     marginTop: 5,
   },
   divider: {
     height: 1,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: '#DCE8F1',
     marginVertical: 15,
   },
   route: {
@@ -722,29 +759,29 @@ const styles = StyleSheet.create({
   airport: {
     fontSize: 25,
     fontWeight: '800',
-    color: '#172B4D',
+    color: '#123B5D',
   },
   destination: {
     alignItems: 'flex-end',
   },
   arrow: {
     fontSize: 23,
-    color: '#2563EB',
+    color: '#2878B9',
   },
   muted: {
-    color: '#64748B',
+    color: '#62798B',
     fontSize: 13,
     marginTop: 4,
   },
   info: {
-    color: '#475569',
+    color: '#526C80',
     marginTop: 9,
     fontSize: 14,
   },
   sectionTitle: {
     fontSize: 17,
     fontWeight: '800',
-    color: '#172B4D',
+    color: '#123B5D',
     marginBottom: 14,
   },
   priceRow: {
@@ -755,16 +792,16 @@ const styles = StyleSheet.create({
   },
   totalLabel: {
     fontWeight: '800',
-    color: '#172B4D',
+    color: '#123B5D',
   },
   total: {
     fontSize: 19,
     fontWeight: '800',
-    color: '#2563EB',
+    color: '#2878B9',
   },
   timerLabel: {
     textAlign: 'center',
-    color: '#64748B',
+    color: '#62798B',
     marginTop: 20,
   },
   timer: {
@@ -789,7 +826,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   primaryButton: {
-    backgroundColor: '#2563EB',
+    backgroundColor: '#2878B9',
     minHeight: 50,
     justifyContent: 'center',
     alignItems: 'center',
@@ -810,7 +847,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   secondaryButtonText: {
-    color: '#2563EB',
+    color: '#2878B9',
     fontWeight: '700',
   },
 });

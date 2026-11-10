@@ -152,17 +152,17 @@ export default function FlightTrackerScreen() {
 const styles = StyleSheet.create({
   container: {
     padding: 16,
-    backgroundColor: '#F3F6FB',
+    backgroundColor: '#F7FAFC',
     flexGrow: 1,
   },
   title: {
     fontSize: 26,
     fontWeight: '900',
-    color: '#172B4D',
+    color: '#123B5D',
   },
   subtitle: {
     fontSize: 13,
-    color: '#64748B',
+    color: '#62798B',
     lineHeight: 19,
     marginTop: 8,
   },
@@ -172,7 +172,7 @@ const styles = StyleSheet.create({
     padding: 18,
     marginTop: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#DCE8F1',
   },
   route: {
     flexDirection: 'row',
@@ -182,16 +182,16 @@ const styles = StyleSheet.create({
   airportCode: {
     fontSize: 26,
     fontWeight: '900',
-    color: '#172B4D',
+    color: '#123B5D',
   },
   plane: {
     fontSize: 20,
-    color: '#2563EB',
+    color: '#2878B9',
   },
   cardTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#172B4D',
+    color: '#123B5D',
     marginTop: 12,
   },
   status: {
@@ -204,7 +204,7 @@ const styles = StyleSheet.create({
     marginTop: 14,
   },
   button: {
-    backgroundColor: '#2563EB',
+    backgroundColor: '#2878B9',
     padding: 13,
     borderRadius: 10,
     alignItems: 'center',

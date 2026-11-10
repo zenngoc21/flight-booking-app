@@ -1,9 +1,37 @@
-import React,{useCallback,useState} from 'react';
-import {ActivityIndicator,ScrollView,StyleSheet,Text,TouchableOpacity,View} from 'react-native';
-import {useFocusEffect,useLocalSearchParams,useRouter} from 'expo-router';
-import {getMyBookings, type BookingHistoryItem} from '../../services/api';
-import {getSavedToken} from '../../services/authStorage';
-import {getBookingItinerary} from '../../services/bookingItinerary';
+import React, { useCallback, useState } from 'react';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+
+import {
+  InfoRow,
+  PremiumCard,
+  PrimaryButton,
+  RouteLine,
+  SectionLabel,
+  StatusPill,
+  TextLink,
+  TicketDivider,
+  screenPadding,
+  type StatusTone,
+} from '@/components/premium-ui';
+import { PremiumPalette } from '@/constants/theme';
+import { getMyBookings, type BookingHistoryItem } from '../../services/api';
+import { getSavedToken } from '../../services/authStorage';
+import { getBookingItinerary } from '../../services/bookingItinerary';
+
+const bookingLabel: Record<string, { label: string; tone: StatusTone }> = {
+  confirmed: { label: 'Đã xác nhận', tone: 'success' },
+  pending: { label: 'Chờ xử lý', tone: 'warning' },
+  cancelled: { label: 'Đã hủy', tone: 'danger' },
+  expired: { label: 'Đã hết hạn', tone: 'neutral' },
+};
+const paymentLabel: Record<string, { label: string; tone: StatusTone }> = {
+  paid: { label: 'Đã thanh toán', tone: 'success' },
+  pending: { label: 'Chờ thanh toán', tone: 'warning' },
+  failed: { label: 'Thanh toán thất bại', tone: 'danger' },
+  refunded: { label: 'Đã hoàn tiền', tone: 'info' },
+};
+
 export default function BookingDetailScreen() {
   const router = useRouter();
   const { bookingId } = useLocalSearchParams<{ bookingId: string }>();
@@ -31,36 +59,98 @@ export default function BookingDetailScreen() {
   }, [bookingId]));
 
   if (loading) {
-    return <View style={s.center}><ActivityIndicator /><Text>Đang tải booking…</Text></View>;
+    return (
+      <View style={s.center}>
+        <ActivityIndicator color={PremiumPalette.sky} />
+        <Text style={s.muted}>Đang tải booking…</Text>
+      </View>
+    );
   }
 
   if (!booking) {
-    return <View style={s.center}><Text>{error}</Text><TouchableOpacity onPress={() => router.replace('/booking-history')}><Text style={s.link}>Quay lại</Text></TouchableOpacity></View>;
+    return (
+      <View style={s.center}>
+        <Text style={s.muted}>{error}</Text>
+        <TextLink label="Quay lại" onPress={() => router.replace('/booking-history')} />
+      </View>
+    );
   }
 
   const itinerary = getBookingItinerary(booking);
+  const bs = bookingLabel[booking.bookingStatus] ?? { label: booking.bookingStatus, tone: 'neutral' as StatusTone };
+  const ps = paymentLabel[booking.paymentStatus] ?? { label: booking.paymentStatus, tone: 'neutral' as StatusTone };
 
   return (
-    <ScrollView contentContainerStyle={s.container}>
-      <View style={s.card}>
-        <Text style={s.label}>MÃ ĐẶT CHỖ CHUNG</Text>
+    <ScrollView contentContainerStyle={[s.container, screenPadding]}>
+      <PremiumCard>
+        <SectionLabel>MÃ ĐẶT CHỖ CHUNG</SectionLabel>
         <Text style={s.pnr}>{booking.bookingCode}</Text>
+        <View style={s.pills}>
+          <StatusPill label={bs.label} tone={bs.tone} />
+          <StatusPill label={ps.label} tone={ps.tone} />
+        </View>
+
         {itinerary.map((leg, index) => (
-          <View key={`${leg.flight.flightNumber}-${index}`}>
-            <Text style={s.route}>Chặng {index + 1}: {leg.flight.origin?.code} → {leg.flight.destination?.code}</Text>
-            <Text style={s.body}>{leg.flight.origin?.city} đến {leg.flight.destination?.city}</Text>
-            <Text style={s.body}>Chuyến bay: {leg.flight.flightNumber || '--'}</Text>
-            <Text style={s.body}>Khởi hành: {leg.flight.departureAt ? new Date(leg.flight.departureAt).toLocaleString('vi-VN') : '--'}</Text>
-            <Text style={s.body}>Ghế: {leg.seats.join(', ') || 'Chưa chọn'}</Text>
+          <View key={`${leg.flight.flightNumber}-${index}`} style={{ marginTop: 22 }}>
+            <Text style={s.legLabel}>CHẶNG {index + 1} · {leg.flight.flightNumber || '--'}</Text>
+            <RouteLine
+              from={leg.flight.origin?.code}
+              to={leg.flight.destination?.code}
+              fromCity={leg.flight.origin?.city}
+              toCity={leg.flight.destination?.city}
+            />
+            <View style={{ marginTop: 10 }}>
+              <InfoRow
+                label="Khởi hành"
+                value={leg.flight.departureAt ? new Date(leg.flight.departureAt).toLocaleString('vi-VN') : '--'}
+              />
+              <InfoRow label="Ghế" value={leg.seats.join(', ') || 'Chưa chọn'} />
+            </View>
           </View>
         ))}
-        <Text style={s.body}>Hành khách: {booking.passengers.map((passenger) => `${passenger.firstName} ${passenger.lastName}`).join(', ')}</Text>
-        <Text style={s.body}>Đặt vé: {booking.bookingStatus} · Thanh toán: {booking.paymentStatus}</Text>
-        <Text style={s.total}>{Number(booking.pricing.total).toLocaleString('vi-VN')} {booking.pricing.currency}</Text>
+
+        <TicketDivider />
+        <InfoRow
+          label="Hành khách"
+          value={booking.passengers.map((passenger) => `${passenger.firstName} ${passenger.lastName}`).join(', ')}
+        />
+        <View style={s.totalRow}>
+          <Text style={s.totalLabel}>Tổng cộng</Text>
+          <Text style={s.total}>{Number(booking.pricing.total).toLocaleString('vi-VN')} {booking.pricing.currency}</Text>
+        </View>
+      </PremiumCard>
+
+      <View style={s.actions}>
+        {booking.paymentStatus === 'paid' && booking.bookingStatus === 'confirmed' && (
+          <PrimaryButton
+            label="Mở vé điện tử / QR"
+            onPress={() => router.push({ pathname: '/booking/ticket', params: { bookingId: booking._id } })}
+          />
+        )}
+        {booking.bookingStatus === 'pending' && booking.paymentStatus === 'pending' && (
+          <PrimaryButton
+            label="Tiếp tục thanh toán"
+            onPress={() => router.push({ pathname: '/booking/payment', params: { bookingId: booking._id } })}
+          />
+        )}
       </View>
-      {booking.paymentStatus === 'paid' && booking.bookingStatus === 'confirmed' && <TouchableOpacity style={s.primary} onPress={() => router.push({ pathname: '/booking/ticket', params: { bookingId: booking._id } })}><Text style={s.white}>Mở vé điện tử / QR</Text></TouchableOpacity>}
-      {booking.bookingStatus === 'pending' && booking.paymentStatus === 'pending' && <TouchableOpacity style={s.primary} onPress={() => router.push({ pathname: '/booking/payment', params: { bookingId: booking._id } })}><Text style={s.white}>Tiếp tục thanh toán</Text></TouchableOpacity>}
-      <Text style={s.note}>Hủy/đổi vé chỉ khả dụng khi backend cung cấp API và chính sách tương ứng. Ứng dụng không tự đổi trạng thái booking ở phía client.</Text>
+      <Text style={s.note}>
+        Hủy/đổi vé chỉ khả dụng khi backend cung cấp API và chính sách tương ứng. Ứng dụng không tự đổi trạng thái booking ở phía client.
+      </Text>
     </ScrollView>
   );
-};const s=StyleSheet.create({container:{padding:16,backgroundColor:'#F3F6FB',flexGrow:1},center:{flex:1,alignItems:'center',justifyContent:'center',padding:24},card:{backgroundColor:'#FFF',borderRadius:16,padding:20,borderWidth:1,borderColor:'#E2E8F0'},label:{fontSize:11,color:'#64748B',fontWeight:'700'},pnr:{fontSize:28,fontWeight:'900',color:'#2563EB',marginTop:4},route:{fontSize:22,fontWeight:'800',color:'#172B4D',marginTop:24},body:{fontSize:14,color:'#475569',marginTop:12,lineHeight:21},total:{fontSize:20,fontWeight:'900',color:'#172B4D',marginTop:18},primary:{backgroundColor:'#2563EB',padding:16,borderRadius:12,alignItems:'center',marginTop:14},white:{color:'#FFF',fontWeight:'800'},note:{fontSize:12,color:'#64748B',lineHeight:18,marginTop:18},link:{color:'#2563EB',marginTop:14}});
+}
+
+const s = StyleSheet.create({
+  container: { backgroundColor: PremiumPalette.canvas, flexGrow: 1 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, backgroundColor: PremiumPalette.canvas },
+  muted: { color: PremiumPalette.muted, textAlign: 'center', marginTop: 10 },
+  pnr: { fontSize: 30, fontWeight: '900', color: PremiumPalette.sky, letterSpacing: 2 },
+  pills: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
+  legLabel: { color: PremiumPalette.muted, fontSize: 10, fontWeight: '800', letterSpacing: 1 },
+  totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, gap: 12 },
+  totalLabel: { color: PremiumPalette.muted, fontSize: 13 },
+  total: { color: PremiumPalette.navy, fontSize: 22, fontWeight: '900' },
+  actions: { gap: 10, marginTop: 16 },
+  note: { fontSize: 12, color: PremiumPalette.muted, lineHeight: 18, marginTop: 18 },
+});

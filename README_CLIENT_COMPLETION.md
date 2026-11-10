@@ -1,5 +1,11 @@
 # Bản hoàn thiện client — Flight Booking App
 
+## Giao diện Premium Travel
+
+- Làm mới Home, tìm chuyến bay, chi tiết chuyến bay, chọn ghế, hành khách, thanh toán, vé điện tử, lịch sử đặt vé, hồ sơ, đăng nhập và đăng ký theo bảng màu Deep Navy / Sky Blue / Cloud Blue / Luxury Gold.
+- Ảnh banner, điểm đến, hãng bay, nền đăng nhập/đăng ký và minh họa trạng thái rỗng được đóng gói tại `client/assets/images`; giao diện không phụ thuộc URL ảnh bên ngoài.
+- Ảnh là artwork minh họa được tạo riêng cho project. Thay đổi chỉ nằm ở UI/assets; backend, schema dữ liệu, API và tích hợp VNPay Sandbox được giữ nguyên.
+
 Bản này bổ sung các luồng client còn thiếu trong khả năng API hiện tại:
 
 - Sửa thứ tự React Query Provider để tránh gọi `usePublicSettings` bên ngoài `QueryClientProvider`.

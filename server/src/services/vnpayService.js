@@ -106,14 +106,26 @@ function validateClientReturnUrl(value) {
   }
 
   const path = target.pathname.replace(/\/+$/, '');
+  const isPaymentPath =
+    path === '/booking/payment' || path === '/--/booking/payment';
+  const expoHostedDomains = [
+    'exp.host',
+    'exp.direct',
+    'expo.io',
+    'expo.test',
+    'expo.dev',
+  ];
+  const isExpoGoHost =
+    isPrivateNetworkHost(target.hostname) ||
+    expoHostedDomains.some(
+      (domain) =>
+        target.hostname === domain ||
+        target.hostname.endsWith(`.${domain}`),
+    );
   const isExpoGo =
     ['exp:', 'exps:'].includes(target.protocol) &&
-    /\/--\/booking\/payment$/.test(path) &&
-    (
-      isPrivateNetworkHost(target.hostname) ||
-      target.hostname === 'exp.host' ||
-      target.hostname.endsWith('.expo.dev')
-    );
+    isPaymentPath &&
+    isExpoGoHost;
   const isCustomAppScheme =
     target.protocol === 'client:' &&
     target.hostname === 'booking' &&

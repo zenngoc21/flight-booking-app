@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -10,7 +11,7 @@ import {
   View,
 } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { searchAirports, searchFlights, type AirportSuggestion } from '../services/api';
 import { BookingSettingsNotice } from '../components/booking-settings-notice';
@@ -184,6 +185,13 @@ function hasValidAirlineCodes(value: string) {
   return !normalized || /^[A-Z0-9]{2,3}(,[A-Z0-9]{2,3})*$/.test(normalized);
 }
 
+function isCabinClass(value: string | undefined): value is CabinClass {
+  return value === 'economy' ||
+    value === 'premium_economy' ||
+    value === 'business' ||
+    value === 'first';
+}
+
 function formatPrice(price: number, currency: string) {
   try {
     return new Intl.NumberFormat('vi-VN', {
@@ -193,6 +201,19 @@ function formatPrice(price: number, currency: string) {
     }).format(price);
   } catch {
     return `${price.toLocaleString('vi-VN')} ${currency}`;
+  }
+}
+
+function getAirlineLogo(code: string) {
+  switch (code.trim().toUpperCase()) {
+    case 'VN':
+      return require('../../assets/images/airlines/vietnam-airlines.png');
+    case 'VJ':
+      return require('../../assets/images/airlines/vietjet.png');
+    case 'QH':
+      return require('../../assets/images/airlines/bamboo-airways.png');
+    default:
+      return null;
   }
 }
 
@@ -253,7 +274,16 @@ function FlightCard({
     >
       <View style={styles.flightTop}>
         <View style={styles.airlineBadge}>
-          <Text style={styles.airlineCode}>{flight.airline.code}</Text>
+          {getAirlineLogo(flight.airline.code) ? (
+            <Image
+              source={getAirlineLogo(flight.airline.code)!}
+              style={styles.airlineLogo}
+              resizeMode="contain"
+              accessibilityLabel={flight.airline.name}
+            />
+          ) : (
+            <Text style={styles.airlineCode}>{flight.airline.code}</Text>
+          )}
         </View>
 
         <View style={styles.airlineInfo}>
@@ -318,20 +348,52 @@ function FlightCard({
 
 export default function ExploreScreen() {
   const router = useRouter();
+  const searchParams = useLocalSearchParams<{
+    from?: string;
+    to?: string;
+    date?: string;
+    adultCount?: string;
+    cabinClass?: string;
+    tripType?: string;
+  }>();
   const settingsQuery = usePublicSettings();
   const settings = settingsQuery.data;
   const currency = settings?.currency ?? 'VND';
   const timeZone = settings?.timezone ?? 'Asia/Ho_Chi_Minh';
 
-  const [from, setFrom] = useState('SGN');
-  const [to, setTo] = useState('HKG');
-  const [date, setDate] = useState(getDefaultDate());
-  const [tripType, setTripType] = useState<'oneway' | 'roundtrip' | 'multicity'>('oneway');
+  const [from, setFrom] = useState(() => {
+    const requestedFrom = searchParams.from ?? '';
+    return /^[A-Za-z]{3}$/.test(requestedFrom) ? requestedFrom.toUpperCase() : 'SGN';
+  });
+  const [to, setTo] = useState(() => {
+    const requestedTo = searchParams.to ?? '';
+    return /^[A-Za-z]{3}$/.test(requestedTo) ? requestedTo.toUpperCase() : 'HKG';
+  });
+  const [date, setDate] = useState(() => {
+    const requestedDate = searchParams.date ?? '';
+    return isValidCalendarDate(requestedDate) && requestedDate >= getTodayDate()
+      ? requestedDate
+      : getDefaultDate();
+  });
+  const [tripType, setTripType] = useState<'oneway' | 'roundtrip' | 'multicity'>(() =>
+    searchParams.tripType === 'roundtrip' || searchParams.tripType === 'multicity'
+      ? searchParams.tripType
+      : 'oneway',
+  );
   const [returnDate, setReturnDate] = useState(() => { const d = new Date(); d.setDate(d.getDate() + 10); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; });
-  const [adultCount, setAdultCount] = useState(1);
+  const [adultCount, setAdultCount] = useState(() => {
+    const requestedCount = Number(searchParams.adultCount);
+    return Number.isInteger(requestedCount) && requestedCount >= 1 && requestedCount <= 9
+      ? requestedCount
+      : 1;
+  });
   const [childCount, setChildCount] = useState(0);
   const [infantCount, setInfantCount] = useState(0);
-  const [cabinClass, setCabinClass] = useState<CabinClass>('economy');
+  const [cabinClass, setCabinClass] = useState<CabinClass>(() =>
+    isCabinClass(searchParams.cabinClass)
+      ? searchParams.cabinClass
+      : 'economy',
+  );
   const [airlineCodesInput, setAirlineCodesInput] = useState('');
   const [multiCitySegments, setMultiCitySegments] = useState<SearchSegment[]>([
     { from: 'SGN', to: 'HKG', date: getDefaultDate() },
@@ -890,14 +952,14 @@ export default function ExploreScreen() {
 
       {flightsQuery.isFetching && !submittedMultiSegments && (
         <View style={styles.loadingCard}>
-          <ActivityIndicator size="large" color="#246BFD" />
+          <ActivityIndicator size="large" color="#2878B9" />
           <Text style={styles.loadingText}>Đang tìm chuyến bay...</Text>
         </View>
       )}
 
       {submittedMultiSegments && multiCityFlightsQuery.isFetching && (
         <View style={styles.loadingCard}>
-          <ActivityIndicator size="large" color="#246BFD" />
+          <ActivityIndicator size="large" color="#2878B9" />
           <Text style={styles.loadingText}>Đang tìm chuyến bay cho từng chặng...</Text>
         </View>
       )}
@@ -958,6 +1020,12 @@ export default function ExploreScreen() {
             ))
           ) : (
             <View style={styles.emptyCard}>
+              <Image
+                source={require('../../assets/images/illustrations/no-flight.png')}
+                style={styles.emptyIllustration}
+                resizeMode="contain"
+                accessibilityLabel="Minh họa chưa có chuyến bay"
+              />
               <Text style={styles.emptyTitle}>Không tìm thấy chuyến bay</Text>
               <Text style={styles.emptyText}>Không có chuyến phù hợp với chặng này. Hãy thử ngày khác hoặc bỏ bớt bộ lọc.</Text>
             </View>
@@ -1006,6 +1074,12 @@ export default function ExploreScreen() {
 
           {flightsQuery.data.data.length === 0 ? (
             <View style={styles.emptyCard}>
+              <Image
+                source={require('../../assets/images/illustrations/no-flight.png')}
+                style={styles.emptyIllustration}
+                resizeMode="contain"
+                accessibilityLabel="Minh họa chưa có chuyến bay"
+              />
               <Text style={styles.emptyTitle}>Không tìm thấy chuyến bay</Text>
               <Text style={styles.emptyText}>
                 Không có chuyến bay phù hợp với ngày và điều kiện bạn chọn.
@@ -1051,7 +1125,7 @@ export default function ExploreScreen() {
                 </Pressable>
               </View>
             ) : returnFlightsQuery.isFetching ? (
-              <ActivityIndicator color="#246BFD" />
+              <ActivityIndicator color="#2878B9" />
             ) : returnFlightsQuery.data?.data.length ? (
               returnFlightsQuery.data.data.map((flight) => {
                 const departsAfterOutbound = Boolean(selectedOutboundFlight) &&
@@ -1110,24 +1184,29 @@ export default function ExploreScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F3F6FB' },
-  content: { padding: 18, paddingBottom: 40 },
-  heading: { marginBottom: 18 },
-  title: { fontSize: 28, fontWeight: '800', color: '#172B4D' },
-  subtitle: { fontSize: 14, color: '#667085', marginTop: 6 },
+  container: { flex: 1, backgroundColor: '#F7FAFC' },
+  content: { width: '100%', maxWidth: 1050, alignSelf: 'center', paddingHorizontal: 18, paddingTop: 22, paddingBottom: 48 },
+  heading: { marginBottom: 20 },
+  title: { fontSize: 29, lineHeight: 36, fontWeight: '900', color: '#123B5D', letterSpacing: -0.5 },
+  subtitle: { fontSize: 13, lineHeight: 20, color: '#62798B', marginTop: 7 },
   searchCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 18,
+    borderRadius: 22,
+    padding: 20,
     borderWidth: 1,
-    borderColor: '#EAECF0',
+    borderColor: '#DCE8F1',
+    shadowColor: '#123B5D',
+    shadowOpacity: 0.07,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 9 },
+    elevation: 3,
   },
-  flightCardSelected: { borderColor: '#246BFD', borderWidth: 2, backgroundColor: '#F8FAFF' },
+  flightCardSelected: { borderColor: '#D6AD60', borderWidth: 2, backgroundColor: '#FFFCF5' },
   flightCardDisabled: { opacity: 0.45 },
-  selectedFlightSummary: { color: '#175CD3', fontWeight: '700', marginTop: 10 },
+  selectedFlightSummary: {   color: '#2878B9', fontWeight: '700', marginTop: 10 },
   buttonDisabled: { opacity: 0.5 },
   label: {
-    color: '#344054',
+    color: '#526C80',
     fontSize: 14,
     fontWeight: '700',
     marginBottom: 8,
@@ -1135,13 +1214,13 @@ const styles = StyleSheet.create({
   },
   input: {
     borderWidth: 1,
-    borderColor: '#D0D5DD',
-    borderRadius: 11,
+    borderColor: '#DCE8F1',
+    borderRadius: 13,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 15,
-    color: '#172B4D',
-    backgroundColor: '#FFFFFF',
+    color: '#123B5D',
+    backgroundColor: '#FBFDFF',
   },
   dateInputRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   dateTextInput: { flex: 1 },
@@ -1149,50 +1228,50 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderWidth: 1,
-    borderColor: '#D0D5DD',
+    borderColor: '#DCE8F1',
     borderRadius: 11,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#FFFFFF',
   },
-  calendarButtonText: { color: '#175CD3', fontSize: 22 },
+  calendarButtonText: {   color: '#2878B9', fontSize: 22 },
   calendar: {
     marginTop: 8,
     padding: 12,
     borderWidth: 1,
-    borderColor: '#D0D5DD',
+    borderColor: '#DCE8F1',
     borderRadius: 12,
     backgroundColor: '#FFFFFF',
   },
   calendarHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
   calendarNavButton: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
-  calendarNavText: { color: '#175CD3', fontSize: 28, lineHeight: 32 },
+  calendarNavText: {   color: '#2878B9', fontSize: 28, lineHeight: 32 },
   calendarNavDisabled: { color: '#D0D5DD' },
-  calendarMonth: { color: '#172B4D', fontSize: 15, fontWeight: '800', textTransform: 'capitalize' },
+  calendarMonth: { color: '#123B5D', fontSize: 15, fontWeight: '800', textTransform: 'capitalize' },
   calendarGrid: { flexDirection: 'row', flexWrap: 'wrap' },
-  calendarWeekday: { width: '14.2857%', height: 34, color: '#667085', fontSize: 12, fontWeight: '700', textAlign: 'center', textAlignVertical: 'center' },
+  calendarWeekday: { width: '14.2857%', height: 34, color: '#62798B', fontSize: 12, fontWeight: '700', textAlign: 'center', textAlignVertical: 'center' },
   calendarDayCell: { width: '14.2857%', height: 40, alignItems: 'center', justifyContent: 'center' },
   calendarDayButton: { borderRadius: 20 },
-  calendarDaySelected: { backgroundColor: '#246BFD' },
+  calendarDaySelected: { backgroundColor: '#2878B9' },
   calendarDayDisabled: { opacity: 0.4 },
-  calendarDayText: { color: '#344054', fontSize: 14 },
+  calendarDayText: { color: '#526C80', fontSize: 14 },
   calendarDaySelectedText: { color: '#FFFFFF', fontWeight: '800' },
   calendarDayDisabledText: { color: '#98A2B3' },
   sortRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 2 },
   passengerCountRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   travellerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
-  travellerLabel: { color: '#344054', fontSize: 13, flex: 1, paddingRight: 8 },
+  travellerLabel: { color: '#526C80', fontSize: 13, flex: 1, paddingRight: 8 },
   counter: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   countButton: { width: 40, height: 40, borderWidth: 1, borderColor: '#D0D5DD', borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  countButtonText: { color: '#175CD3', fontSize: 22, fontWeight: '700' },
-  passengerCount: { minWidth: 20, color: '#172B4D', fontSize: 17, fontWeight: '800', textAlign: 'center' },
-  passengerHint: { color: '#667085', fontSize: 12, lineHeight: 18, marginTop: 2 },
-  segmentCard: { backgroundColor: '#F8FAFC', borderRadius: 12, padding: 12, marginBottom: 10, borderWidth: 1, borderColor: '#EAECF0' },
+  countButtonText: {   color: '#2878B9', fontSize: 22, fontWeight: '700' },
+  passengerCount: { minWidth: 20, color: '#123B5D', fontSize: 17, fontWeight: '800', textAlign: 'center' },
+  passengerHint: { color: '#62798B', fontSize: 12, lineHeight: 18, marginTop: 2 },
+  segmentCard: { backgroundColor: '#F7FAFC', borderRadius: 12, padding: 12, marginBottom: 10, borderWidth: 1, borderColor: '#DCE8F1' },
   segmentHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  segmentTitle: { color: '#172B4D', fontSize: 15, fontWeight: '800' },
+  segmentTitle: { color: '#123B5D', fontSize: 15, fontWeight: '800' },
   removeSegment: { color: '#B42318', fontWeight: '700' },
-  addSegmentButton: { alignItems: 'center', padding: 12, borderWidth: 1, borderColor: '#246BFD', borderStyle: 'dashed', borderRadius: 10, marginBottom: 8 },
-  addSegmentText: { color: '#175CD3', fontWeight: '800' },
+  addSegmentButton: { alignItems: 'center', padding: 12, borderWidth: 1, borderColor: '#2878B9', borderStyle: 'dashed', borderRadius: 10, marginBottom: 8 },
+  addSegmentText: { color: '#2878B9', fontWeight: '800' },
   sortButton: {
     flex: 1,
     minHeight: 43,
@@ -1205,11 +1284,11 @@ const styles = StyleSheet.create({
   },
   cabinButton: { flexBasis: '46%' },
   sortButtonActive: {
-    backgroundColor: '#E8F0FF',
-    borderColor: '#246BFD',
+    backgroundColor: '#EAF4FC',
+    borderColor: '#2878B9',
   },
   sortText: { color: '#475467', fontSize: 12 },
-  sortTextActive: { color: '#175CD3', fontWeight: '800' },
+  sortTextActive: { color: '#2878B9', fontWeight: '800' },
   checkboxRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1225,18 +1304,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  checkboxChecked: { backgroundColor: '#246BFD', borderColor: '#246BFD' },
+  checkboxChecked: { backgroundColor: '#2878B9', borderColor: '#2878B9' },
   checkmark: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
-  checkboxLabel: { color: '#344054', fontSize: 14 },
+  checkboxLabel: { color: '#526C80', fontSize: 14 },
   validationError: { color: '#B42318', marginTop: 12, lineHeight: 20 },
-  suggestion: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderBottomWidth: 1, borderColor: '#EAECF0', backgroundColor: '#F8FAFC' },
-  suggestionCode: { color: '#175CD3', fontWeight: '800', width: 45 },
-  suggestionCity: { color: '#172B4D', fontWeight: '700' },
-  suggestionAirport: { color: '#667085', fontSize: 12, marginTop: 2 },
-  mutedRoundTrip: { color: '#667085', fontSize: 12, marginTop: 8, lineHeight: 18 },
+  suggestion: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderBottomWidth: 1, borderColor: '#DCE8F1', backgroundColor: '#F7FAFC' },
+  suggestionCode: { color: '#2878B9', fontWeight: '800', width: 45 },
+  suggestionCity: { color: '#123B5D', fontWeight: '700' },
+  suggestionAirport: { color: '#62798B', fontSize: 12, marginTop: 2 },
+  mutedRoundTrip: { color: '#62798B', fontSize: 12, marginTop: 8, lineHeight: 18 },
   searchButton: {
-    backgroundColor: '#246BFD',
-    borderRadius: 12,
+    backgroundColor: '#123B5D',
+    borderRadius: 14,
     minHeight: 52,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1245,12 +1324,14 @@ const styles = StyleSheet.create({
   searchButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '800' },
   loadingCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 15,
-    padding: 25,
+    borderRadius: 18,
+    padding: 28,
     marginTop: 18,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E4EBF2',
   },
-  loadingText: { color: '#667085', marginTop: 10 },
+  loadingText: { color: '#62798B', marginTop: 10 },
   errorCard: {
     backgroundColor: '#FEF3F2',
     padding: 18,
@@ -1260,12 +1341,12 @@ const styles = StyleSheet.create({
   errorTitle: { color: '#B42318', fontWeight: '800', fontSize: 16 },
   errorText: { color: '#B42318', marginTop: 7, lineHeight: 20 },
   retryButton: { alignSelf: 'flex-start', marginTop: 12 },
-  retryText: { color: '#175CD3', fontWeight: '800' },
-  resultsSection: { marginTop: 25 },
-  resultsTitle: { color: '#172B4D', fontSize: 22, fontWeight: '800' },
-  resultsSubtitle: { color: '#667085', marginTop: 5 },
+  retryText: { color: '#2878B9', fontWeight: '800' },
+  resultsSection: { marginTop: 30 },
+  resultsTitle: { color: '#123B5D', fontSize: 23, fontWeight: '900', letterSpacing: -0.3 },
+  resultsSubtitle: { color: '#62798B', marginTop: 5 },
   resultsCount: {
-    color: '#344054',
+    color: '#526C80',
     fontSize: 14,
     fontWeight: '700',
     marginTop: 8,
@@ -1273,67 +1354,75 @@ const styles = StyleSheet.create({
   },
   segmentTabs: { gap: 8, marginBottom: 12 },
   segmentTab: { borderWidth: 1, borderColor: '#D0D5DD', borderRadius: 10, padding: 11, backgroundColor: '#FFFFFF' },
-  segmentTabActive: { borderColor: '#246BFD', backgroundColor: '#E8F0FF' },
-  segmentTabText: { color: '#344054', fontWeight: '700' },
-  segmentTabTextActive: { color: '#175CD3' },
-  segmentTabDate: { color: '#667085', fontSize: 12, marginTop: 3 },
+  segmentTabActive: { borderColor: '#2878B9', backgroundColor: '#EAF4FC' },
+  segmentTabText: { color: '#526C80', fontWeight: '700' },
+  segmentTabTextActive: { color: '#2878B9' },
+  segmentTabDate: { color: '#62798B', fontSize: 12, marginTop: 3 },
   flightCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 19,
     borderWidth: 1,
-    borderColor: '#EAECF0',
-    padding: 15,
-    marginBottom: 12,
+    borderColor: '#DCE8F1',
+    padding: 17,
+    marginBottom: 14,
+    shadowColor: '#123B5D',
+    shadowOpacity: 0.045,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 2,
   },
-  pressed: { opacity: 0.8 },
+  pressed: { opacity: 0.92, transform: [{ scale: 0.995 }] },
   flightTop: { flexDirection: 'row', alignItems: 'center', gap: 9 },
   airlineBadge: {
     width: 42,
     height: 42,
     borderRadius: 12,
-    backgroundColor: '#E8F0FF',
+    backgroundColor: '#EAF4FC',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  airlineCode: { color: '#175CD3', fontSize: 12, fontWeight: '800' },
+  airlineLogo: { width: 38, height: 30 },
+  airlineCode: { color: '#2878B9', fontSize: 12, fontWeight: '800' },
   airlineInfo: { flex: 1 },
-  airlineName: { color: '#172B4D', fontSize: 13, fontWeight: '800' },
-  flightNumber: { color: '#667085', fontSize: 12, marginTop: 4 },
-  price: { color: '#175CD3', fontWeight: '800', fontSize: 14 },
+  airlineName: { color: '#123B5D', fontSize: 13, fontWeight: '800' },
+  flightNumber: { color: '#62798B', fontSize: 12, marginTop: 4 },
+  price: { color: '#123B5D', fontWeight: '800', fontSize: 14 },
   routeRow: { flexDirection: 'row', alignItems: 'center', marginTop: 22 },
   routePoint: { flex: 1, minWidth: 0 },
   routeEnd: { alignItems: 'flex-end' },
-  time: { color: '#172B4D', fontSize: 20, fontWeight: '800' },
-  airportCode: { color: '#344054', fontSize: 14, fontWeight: '700', marginTop: 4 },
-  city: { color: '#667085', fontSize: 11, marginTop: 4 },
+  time: { color: '#123B5D', fontSize: 20, fontWeight: '800' },
+  airportCode: { color: '#526C80', fontSize: 14, fontWeight: '700', marginTop: 4 },
+  city: { color: '#62798B', fontSize: 11, marginTop: 4 },
   routeMiddle: { flex: 1.2, alignItems: 'center', paddingHorizontal: 7 },
-  durationLabel: { color: '#667085', fontSize: 10, textAlign: 'center' },
+  durationLabel: { color: '#62798B', fontSize: 10, textAlign: 'center' },
   routeLine: {
     flexDirection: 'row',
     alignItems: 'center',
     width: '100%',
     marginVertical: 7,
   },
-  routeDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#246BFD' },
+  routeDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#D6AD60' },
   routeDash: { flex: 1, height: 1, backgroundColor: '#98A2B3' },
-  plane: { color: '#246BFD', fontSize: 15, marginHorizontal: 2 },
+  plane: { color: '#2878B9', fontSize: 15, marginHorizontal: 2 },
   cardFooter: {
     borderTopWidth: 1,
-    borderTopColor: '#EAECF0',
+    borderTopColor: '#DCE8F1',
     marginTop: 16,
     paddingTop: 12,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  baggage: { color: '#667085', fontSize: 12 },
-  detailLink: { color: '#175CD3', fontWeight: '800', fontSize: 12 },
+  baggage: { color: '#62798B', fontSize: 12 },
+  detailLink: { color: '#2878B9', fontWeight: '800', fontSize: 12 },
   emptyCard: {
     backgroundColor: '#FFFFFF',
     padding: 20,
     borderRadius: 15,
+    alignItems: 'center',
   },
-  emptyTitle: { color: '#172B4D', fontSize: 16, fontWeight: '800' },
-  emptyText: { color: '#667085', marginTop: 8, lineHeight: 21 },
+  emptyIllustration: { width: 150, height: 100, marginBottom: 8 },
+  emptyTitle: { color: '#123B5D', fontSize: 16, fontWeight: '800', textAlign: 'center' },
+  emptyText: { color: '#62798B', marginTop: 8, lineHeight: 21 },
   sourceText: { color: '#98A2B3', fontSize: 11, marginTop: 6 },
 });

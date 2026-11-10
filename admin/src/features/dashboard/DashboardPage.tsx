@@ -41,6 +41,7 @@ import type {
 } from './dashboard.types';
 
 const { Title, Text } = Typography;
+const chartColors = ['#2878b9', '#d6ad60', '#43a5a0', '#7d8fbc', '#ef8b67'];
 
 const formatVND = (value: number) =>
   new Intl.NumberFormat('vi-VN', {
@@ -229,7 +230,7 @@ export default function DashboardPage() {
               value={overview?.totalRevenue || 0}
               formatter={(value) => formatVND(Number(value))}
               prefix={<DollarOutlined />}
-              valueStyle={{ color: '#1677ff', fontSize: 22 }}
+              valueStyle={{ color: '#2878b9', fontSize: 22 }}
             />
             <Text type="secondary" className="text-xs">
               Booking đã thanh toán
@@ -312,7 +313,7 @@ export default function DashboardPage() {
                     type="monotone"
                     dataKey="revenue"
                     name="Doanh thu"
-                    stroke="#2563eb"
+                    stroke="#2878b9"
                     strokeWidth={3}
                     dot={{ r: 4 }}
                     activeDot={{ r: 6 }}
@@ -338,8 +339,8 @@ export default function DashboardPage() {
                       outerRadius={95}
                       label={({ value }) => `${value}%`}
                     >
-                      {airlineData.map((item) => (
-                        <Cell key={item.name} />
+                      {airlineData.map((item, index) => (
+                        <Cell key={item.name} fill={chartColors[index % chartColors.length]} />
                       ))}
                     </Pie>
 

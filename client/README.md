@@ -40,3 +40,12 @@ server allows private-network origins on the Admin and Expo web ports.
 Changing Wi-Fi networks may change the computer's LAN IP. Update `client/.env`
 and restart Expo when that happens. Do not use the computer's `localhost` address
 on a physical phone.
+
+## Offline tickets
+
+After payment is confirmed, open **Vé điện tử / QR** and tap **Thông tin vé
+offline** to create a PNG ticket image. On a phone, the image is saved in the
+app's documents and the share sheet lets you save or send it; on web, the PNG is
+downloaded. The QR opens the ticket screen in the app. In Expo Go, keep the Expo
+development server running and reachable from the scanning phone for that link
+to work.
