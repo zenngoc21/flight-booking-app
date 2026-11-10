@@ -112,8 +112,23 @@ describe('VNPay service', () => {
       validateClientReturnUrl('exp://192.168.1.10:8081/--/booking/payment'),
     ).toBe('exp://192.168.1.10:8081/--/booking/payment');
     expect(
+      validateClientReturnUrl('exp://192.168.1.10:8081/booking/payment'),
+    ).toBe('exp://192.168.1.10:8081/booking/payment');
+    expect(
+      validateClientReturnUrl('exp://abc123.exp.direct/--/booking/payment'),
+    ).toBe('exp://abc123.exp.direct/--/booking/payment');
+    expect(
+      validateClientReturnUrl('exps://abc123.expo.io/--/booking/payment'),
+    ).toBe('exps://abc123.expo.io/--/booking/payment');
+    expect(
+      validateClientReturnUrl('exp://u.expo.dev/--/booking/payment'),
+    ).toBe('exp://u.expo.dev/--/booking/payment');
+    expect(
       validateClientReturnUrl('http://localhost:8081/booking/payment'),
     ).toBe('http://localhost:8081/booking/payment');
+    expect(() =>
+      validateClientReturnUrl('exp://attacker.example/--/booking/payment'),
+    ).toThrow(/không thuộc ứng dụng/);
     expect(() => validateClientReturnUrl('https://attacker.example/steal')).toThrow(
       /không thuộc ứng dụng/,
     );

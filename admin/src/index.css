@@ -1,6 +1,21 @@
 
 @import "tailwindcss";
 
+:root {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+  color: #17364f;
+  background: #f3f7fb;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  --brand-navy: #123b5d;
+  --brand-blue: #2878b9;
+  --brand-cloud: #f3f7fb;
+  --brand-border: #e2eaf1;
+  --brand-muted: #71879a;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -9,11 +24,226 @@ html,
 body,
 #root {
   margin: 0;
+  min-width: 320px;
   min-height: 100%;
   width: 100%;
 }
 
 body {
-  font-family: Inter, Arial, sans-serif;
-  background-color: #f5f7fb;
+  min-height: 100vh;
+  color: #17364f;
+  background:
+    radial-gradient(ellipse at 86% 0%, rgba(40, 120, 185, 0.08), transparent 30rem),
+    #f3f7fb;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 3px solid rgba(40, 120, 185, 0.28);
+  outline-offset: 2px;
+}
+
+.admin-shell {
+  min-height: 100vh;
+  background: transparent !important;
+}
+
+.admin-login-screen {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 18% 18%, rgba(86, 157, 208, 0.22), transparent 30rem),
+    radial-gradient(ellipse at 92% 84%, rgba(214, 173, 96, 0.12), transparent 24rem),
+    linear-gradient(140deg, #0d2f4b 0%, #174e76 56%, #2878b9 100%);
+}
+
+.admin-login-screen::before,
+.admin-login-screen::after {
+  position: absolute;
+  content: "";
+  width: 380px;
+  height: 380px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.admin-login-screen::before {
+  top: -190px;
+  right: -120px;
+}
+
+.admin-login-screen::after {
+  bottom: -240px;
+  left: -100px;
+  width: 520px;
+  height: 520px;
+}
+
+.admin-login-card {
+  position: relative;
+  z-index: 1;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.55) !important;
+  border-radius: 24px !important;
+  box-shadow: 0 28px 80px rgba(4, 25, 42, 0.3) !important;
+}
+
+.admin-login-brand {
+  padding-bottom: 22px;
+  border-bottom: 1px solid #edf1f5;
+}
+
+.admin-login-icon {
+  background: linear-gradient(145deg, #123b5d, #2878b9);
+  box-shadow: 0 10px 24px rgba(40, 120, 185, 0.28);
+}
+
+.admin-sidebar {
+  position: sticky !important;
+  top: 0;
+  height: 100vh;
+  flex: 0 0 auto;
+  background: linear-gradient(180deg, #123b5d 0%, #0c2d48 100%) !important;
+  box-shadow: 8px 0 28px rgba(13, 45, 70, 0.08);
+  z-index: 20;
+}
+
+.admin-sidebar .ant-layout-sider-children {
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-brand {
+  min-height: 68px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  letter-spacing: 0.04em;
+}
+
+.admin-sidebar .ant-menu {
+  flex: 1;
+  padding: 8px 10px;
+  background: transparent !important;
+}
+
+.admin-sidebar .ant-menu-item,
+.admin-sidebar .ant-menu-submenu-title {
+  min-height: 44px;
+  line-height: 44px;
+  margin: 4px 0;
+  border-radius: 10px;
+}
+
+.admin-sidebar .ant-menu-item-selected {
+  color: #fff !important;
+  background: rgba(96, 165, 220, 0.28) !important;
+  font-weight: 650;
+}
+
+.admin-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  height: 68px;
+  border-bottom: 1px solid var(--brand-border);
+  background: rgba(255, 255, 255, 0.92) !important;
+  backdrop-filter: blur(14px);
+}
+
+.admin-content {
+  width: 100%;
+  max-width: 1680px;
+  margin: 0 auto;
+}
+
+.admin-page {
+  animation: admin-page-enter 240ms ease-out both;
+}
+
+.ant-card {
+  border-color: var(--brand-border);
+  box-shadow: 0 8px 24px rgba(18, 59, 93, 0.045);
+}
+
+.ant-card .ant-card-head {
+  border-bottom-color: #edf1f5;
+}
+
+.ant-table-wrapper .ant-table {
+  border-radius: 12px;
+}
+
+.ant-table-wrapper .ant-table-thead > tr > th {
+  color: #526c80;
+  background: #f6f9fc;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.ant-table-wrapper .ant-table-tbody > tr:hover > td {
+  background: #f5faff !important;
+}
+
+.ant-btn-primary {
+  box-shadow: 0 5px 12px rgba(40, 120, 185, 0.17);
+}
+
+.ant-input,
+.ant-input-affix-wrapper,
+.ant-select-selector,
+.ant-picker {
+  border-color: #dce6ee !important;
+}
+
+@keyframes admin-page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 767px) {
+  .admin-topbar {
+    height: 60px;
+    padding-inline: 12px !important;
+  }
+
+  .admin-content {
+    padding: 16px !important;
+  }
+
+  .admin-sidebar {
+    position: fixed !important;
+    inset-block: 0;
+    height: 100dvh;
+  }
+
+  .ant-table-wrapper {
+    overflow-x: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

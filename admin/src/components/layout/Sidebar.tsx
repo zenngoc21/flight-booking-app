@@ -92,9 +92,9 @@ export default function Sidebar({ collapsed }: SidebarProps) {
       trigger={null}
       width={250}
       theme="dark"
-      className="!min-h-screen"
+      className="admin-sidebar !min-h-screen"
     >
-      <div className="h-16 flex items-center justify-center border-b border-gray-700">
+      <div className="admin-brand flex items-center justify-center">
         <span className="text-white font-bold text-lg">
           {collapsed ? 'SH' : '✈ SKYHAVEN ADMIN'}
         </span>

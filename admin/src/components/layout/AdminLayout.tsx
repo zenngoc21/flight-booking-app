@@ -11,7 +11,7 @@ export default function AdminLayout() {
   const [collapsed, setCollapsed] = useState(false);
 
   return (
-    <Layout className="min-h-screen">
+    <Layout className="admin-shell min-h-screen">
       <Sidebar collapsed={collapsed} />
 
       <Layout>
@@ -20,8 +20,8 @@ export default function AdminLayout() {
           onToggle={() => setCollapsed((value) => !value)}
         />
 
-        <Content className="p-4 md:p-6">
-          <div className="min-h-[calc(100vh-112px)]">
+        <Content className="admin-content p-4 md:p-6">
+          <div className="admin-page min-h-[calc(100vh-112px)]">
             <Outlet />
           </div>
         </Content>

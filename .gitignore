@@ -1,0 +1,22 @@
+# Dependencies and generated output
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+build/
+**/build/
+coverage/
+.expo/
+**/.expo/
+
+# Local environment variables and secrets
+.env
+.env.*
+!.env.example
+!**/.env.example
+
+# Local tooling and operating-system files
+.DS_Store
+Thumbs.db
+*.log
+*.tsbuildinfo

@@ -12,13 +12,14 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
+  ApiRequestError,
   getFlightSeats,
   holdSeats,
   releaseSeats,
   type FlightSeatInfo,
 } from '../../services/api';
 import type { CabinClass } from '../../types/flight';
-import { getSavedToken } from '../../services/authStorage';
+import { clearAuthData, getSavedToken } from '../../services/authStorage';
 import { BookingSettingsNotice } from '../../components/booking-settings-notice';
 import { usePublicSettings } from '../../hooks/use-public-settings';
 
@@ -146,6 +147,21 @@ export default function SeatsScreen() {
   const [token, setToken] = useState<string | null>(null);
   const [loadError, setLoadError] = useState('');
 
+  const redirectToLoginOnUnauthorized = async (error: unknown) => {
+    if (!(error instanceof ApiRequestError) || error.status !== 401) {
+      return false;
+    }
+
+    await clearAuthData();
+    setToken(null);
+    showMessage(
+      'Phiên đăng nhập hết hạn',
+      'Vui lòng đăng nhập lại để tiếp tục đặt vé.',
+    );
+    router.replace('/login');
+    return true;
+  };
+
   useEffect(() => {
     const restoredSeats = isMultiCity
       ? multiSeats[multiLegIndex]?.seats ?? []
@@ -238,6 +254,8 @@ export default function SeatsScreen() {
           current.filter((number) => number !== seat.seatNumber),
         );
       } catch (error) {
+        if (await redirectToLoginOnUnauthorized(error)) return;
+
         showMessage(
           'Không thể nhả ghế',
           error instanceof Error ? error.message : 'Vui lòng thử lại.',
@@ -288,6 +306,8 @@ export default function SeatsScreen() {
           : [...current, seat.seatNumber],
       );
     } catch (error) {
+      if (await redirectToLoginOnUnauthorized(error)) return;
+
       showMessage(
         'Không thể giữ ghế',
         error instanceof Error
@@ -434,6 +454,13 @@ export default function SeatsScreen() {
           cabinClass,
         },
       });
+    } catch (error) {
+      if (await redirectToLoginOnUnauthorized(error)) return;
+
+      showMessage(
+        'Không thể tiếp tục',
+        error instanceof Error ? error.message : 'Vui lòng thử lại.',
+      );
     } finally {
       setSubmitting(false);
     }
@@ -454,7 +481,7 @@ export default function SeatsScreen() {
   if (loading || loadedFlightId !== flightId) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#2563EB" />
+        <ActivityIndicator size="large" color="#2878B9" />
         <Text style={styles.muted}>Đang tải sơ đồ ghế...</Text>
       </View>
     );
@@ -560,7 +587,7 @@ export default function SeatsScreen() {
 
         <View style={styles.legend}>
           <Legend color="#FFFFFF" border="#CBD5E1" label="Còn trống" />
-          <Legend color="#2563EB" label="Đang chọn" />
+          <Legend color="#2878B9" label="Đang chọn" />
           <Legend color="#D1D5DB" label="Đã đặt" />
           <Legend color="#FDE68A" label="Đang giữ" />
         </View>
@@ -730,16 +757,16 @@ function SeatButton({
 
   let backgroundColor = '#FFFFFF';
   let borderColor = '#CBD5E1';
-  let textColor = '#334155';
+  let textColor = '#526C80';
 
   if (selected) {
-    backgroundColor = '#2563EB';
-    borderColor = '#2563EB';
+    backgroundColor = '#2878B9';
+    borderColor = '#2878B9';
     textColor = '#FFFFFF';
   } else if (seat.status === 'booked') {
     backgroundColor = '#D1D5DB';
     borderColor = '#D1D5DB';
-    textColor = '#6B7280';
+    textColor = '#62798B';
   } else if (seat.held) {
     backgroundColor = '#FDE68A';
     borderColor = '#F59E0B';
@@ -770,7 +797,7 @@ function SeatButton({
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8FAFC' },
+  container: { flex: 1, backgroundColor: '#F7FAFC' },
   content: { padding: 18, paddingBottom: 30 },
   center: {
     flex: 1,
@@ -779,12 +806,12 @@ const styles = StyleSheet.create({
     padding: 24,
     backgroundColor: '#FFFFFF',
   },
-  muted: { color: '#64748B', fontSize: 13 },
+  muted: { color: '#62798B', fontSize: 13 },
   error: { color: '#DC2626', textAlign: 'center', marginBottom: 16 },
   backButton: { marginBottom: 18, alignSelf: 'flex-start' },
-  backText: { color: '#2563EB', fontSize: 16, fontWeight: '600' },
-  title: { fontSize: 26, fontWeight: '800', color: '#0F172A' },
-  subtitle: { marginTop: 7, marginBottom: 20, color: '#64748B' },
+  backText: { color: '#2878B9', fontSize: 16, fontWeight: '600' },
+  title: { fontSize: 26, fontWeight: '800', color: '#123B5D' },
+  subtitle: { marginTop: 7, marginBottom: 20, color: '#62798B' },
   legend: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -798,9 +825,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 4,
   },
-  legendText: { fontSize: 11, color: '#475569' },
+  legendText: { fontSize: 11, color: '#526C80' },
   plane: {
-    backgroundColor: '#EAF1FB',
+    backgroundColor: '#EAF4FC',
     borderRadius: 22,
     paddingHorizontal: 10,
     paddingVertical: 20,
@@ -814,10 +841,10 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 65,
     borderTopRightRadius: 65,
     borderWidth: 2,
-    borderColor: '#93C5FD',
-    backgroundColor: '#DBEAFE',
+    borderColor: '#A9CDE5',
+    backgroundColor: '#EAF4FC',
   },
-  cockpitText: { color: '#1D4ED8', fontWeight: '700', fontSize: 12 },
+  cockpitText: { color: '#2878B9', fontWeight: '700', fontSize: 12 },
   columnLabels: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -828,7 +855,7 @@ const styles = StyleSheet.create({
   columnLabel: {
     width: 37,
     textAlign: 'center',
-    color: '#64748B',
+    color: '#62798B',
     fontWeight: '700',
   },
   aisle: { width: 18 },
@@ -843,7 +870,7 @@ const styles = StyleSheet.create({
     width: 17,
     textAlign: 'center',
     fontSize: 11,
-    color: '#64748B',
+    color: '#62798B',
   },
   seat: {
     width: 37,
@@ -862,23 +889,23 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#DCE8F1',
   },
-  summaryTitle: { fontSize: 16, fontWeight: '700', color: '#0F172A' },
+  summaryTitle: { fontSize: 16, fontWeight: '700', color: '#123B5D' },
   selectedText: {
     marginTop: 8,
-    color: '#2563EB',
+    color: '#2878B9',
     fontSize: 15,
     fontWeight: '600',
   },
-  divider: { height: 1, backgroundColor: '#E2E8F0', marginVertical: 14 },
+  divider: { height: 1, backgroundColor: '#DCE8F1', marginVertical: 14 },
   priceRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  price: { fontWeight: '700', color: '#0F172A' },
-  note: { marginTop: 12, fontSize: 12, lineHeight: 18, color: '#64748B' },
+  price: { fontWeight: '700', color: '#123B5D' },
+  note: { marginTop: 12, fontSize: 12, lineHeight: 18, color: '#62798B' },
   bottomBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -886,16 +913,16 @@ const styles = StyleSheet.create({
     padding: 16,
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
+    borderTopColor: '#DCE8F1',
   },
   bottomCount: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#123B5D',
     marginTop: 3,
   },
   continueButton: {
-    backgroundColor: '#2563EB',
+    backgroundColor: '#2878B9',
     minWidth: 145,
     minHeight: 48,
     paddingHorizontal: 18,
@@ -909,6 +936,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
     paddingVertical: 12,
     borderRadius: 10,
-    backgroundColor: '#2563EB',
+    backgroundColor: '#2878B9',
   },
 });

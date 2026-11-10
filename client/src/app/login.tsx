@@ -11,6 +11,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  ImageBackground,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { loginUser } from '../services/api';
@@ -104,16 +105,21 @@ export default function LoginScreen() {
         contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.logo}>✈</Text>
+        <ImageBackground
+          source={require('../../assets/images/backgrounds/login-bg.jpg')}
+          resizeMode="cover"
+          style={styles.authHero}
+          imageStyle={styles.authHeroArtwork}
+        >
+          <View style={styles.authHeroShade} />
+          <Text style={styles.logo}>✈</Text>
+          <Text style={styles.title}>Chào mừng trở lại!</Text>
+          <Text style={styles.subtitle}>
+            Đăng nhập để tiếp tục hành trình của bạn.
+          </Text>
+        </ImageBackground>
 
-        <Text style={styles.title}>
-          Chào mừng trở lại!
-        </Text>
-
-        <Text style={styles.subtitle}>
-          Đăng nhập để tiếp tục hành trình của bạn.
-        </Text>
-
+        <View style={styles.formCard}>
         <Text style={styles.label}>Email *</Text>
 
         <TextInput
@@ -162,6 +168,7 @@ export default function LoginScreen() {
             </Text>
           )}
         </TouchableOpacity>
+        </View>
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>
@@ -195,29 +202,64 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   flex: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F7FAFC',
   },
   container: {
     flexGrow: 1,
     justifyContent: 'center',
     padding: 24,
     paddingVertical: 36,
+    width: '100%',
+    maxWidth: 520,
+    alignSelf: 'center',
+  },
+  authHero: {
+    minHeight: 220,
+    borderRadius: 22,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 22,
+    marginBottom: 18,
+  },
+  authHeroArtwork: {
+    borderRadius: 22,
+  },
+  authHeroShade: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: 'rgba(11, 40, 63, 0.28)',
+  },
+  formCard: {
+    padding: 18,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#DCE8F1',
+    shadowColor: '#123B5D',
+    shadowOpacity: 0.06,
+    shadowRadius: 15,
+    shadowOffset: { width: 0, height: 7 },
+    elevation: 2,
   },
   logo: {
     fontSize: 48,
-    color: '#2563EB',
+    color: '#D6AD60',
     textAlign: 'center',
     marginBottom: 14,
   },
   title: {
     fontSize: 27,
     fontWeight: '700',
-    color: '#111827',
+    color: '#FFFFFF',
     textAlign: 'center',
   },
   subtitle: {
     fontSize: 14,
-    color: '#6B7280',
+    color: '#EAF4FC',
     textAlign: 'center',
     marginTop: 8,
     marginBottom: 32,
@@ -225,24 +267,24 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#374151',
+    color: '#123B5D',
     marginBottom: 8,
   },
   input: {
     height: 50,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 10,
+    borderColor: '#DCE8F1',
+    borderRadius: 12,
     paddingHorizontal: 14,
     marginBottom: 20,
     fontSize: 16,
-    color: '#111827',
+    color: '#123B5D',
     backgroundColor: '#FFFFFF',
   },
   button: {
     minHeight: 52,
-    backgroundColor: '#2563EB',
-    borderRadius: 10,
+    backgroundColor: '#2878B9',
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 4,
@@ -262,10 +304,10 @@ const styles = StyleSheet.create({
     marginTop: 24,
   },
   footerText: {
-    color: '#4B5563',
+    color: '#526C80',
   },
   link: {
-    color: '#2563EB',
+    color: '#2878B9',
     fontWeight: '700',
   },
   backButton: {
@@ -273,6 +315,6 @@ const styles = StyleSheet.create({
     marginTop: 24,
   },
   backText: {
-    color: '#64748B',
+    color: '#62798B',
   },
 });

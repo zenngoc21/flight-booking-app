@@ -1,4 +1,36 @@
 import React from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-export default function PaymentFailedScreen(){const router=useRouter();const {bookingId}=useLocalSearchParams<{bookingId?:string}>();return <ScrollView contentContainerStyle={s.box}><Text style={s.icon}>⚠️</Text><Text style={s.title}>Thanh toán chưa thành công</Text><Text style={s.body}>Giao dịch chưa được xác nhận. Không thử thanh toán liên tục; hãy kiểm tra trạng thái booking trên máy chủ trước khi thử lại.</Text>{bookingId&&<TouchableOpacity style={s.primary} onPress={()=>router.replace({pathname:'/booking/payment',params:{bookingId}})}><Text style={s.white}>Kiểm tra trạng thái booking</Text></TouchableOpacity>}<TouchableOpacity style={s.secondary} onPress={()=>router.replace('/booking-history')}><Text style={s.dark}>Mở lịch sử đặt vé</Text></TouchableOpacity></ScrollView>};const s=StyleSheet.create({box:{flexGrow:1,justifyContent:'center',alignItems:'center',padding:24,backgroundColor:'#F8FAFC'},icon:{fontSize:56},title:{fontSize:25,fontWeight:'800',color:'#172B4D',textAlign:'center',marginTop:12},body:{color:'#64748B',textAlign:'center',lineHeight:22,marginVertical:20},primary:{backgroundColor:'#2563EB',padding:16,borderRadius:12,width:'100%',alignItems:'center',marginBottom:10},white:{color:'#FFF',fontWeight:'800'},secondary:{borderWidth:1,borderColor:'#CBD5E1',padding:15,borderRadius:12,width:'100%',alignItems:'center'},dark:{color:'#334155',fontWeight:'700'}});
+
+import { PrimaryButton, SecondaryButton, StateHero } from '@/components/premium-ui';
+
+export default function PaymentFailedScreen() {
+  const router = useRouter();
+  const { bookingId } = useLocalSearchParams<{ bookingId?: string }>();
+
+  return (
+    <ScrollView contentContainerStyle={s.box}>
+      <StateHero
+        glyph="!"
+        tone="danger"
+        title="Thanh toán chưa thành công"
+        body="Giao dịch chưa được xác nhận. Không thử thanh toán liên tục; hãy kiểm tra trạng thái booking trên máy chủ trước khi thử lại."
+      >
+        <View style={s.actions}>
+          {bookingId ? (
+            <PrimaryButton
+              label="Kiểm tra trạng thái booking"
+              onPress={() => router.replace({ pathname: '/booking/payment', params: { bookingId } })}
+            />
+          ) : null}
+          <SecondaryButton label="Mở lịch sử đặt vé" onPress={() => router.replace('/booking-history')} />
+        </View>
+      </StateHero>
+    </ScrollView>
+  );
+}
+
+const s = StyleSheet.create({
+  box: { flexGrow: 1, justifyContent: 'center', alignItems: 'center', padding: 24, backgroundColor: '#F7FAFC' },
+  actions: { width: '100%', maxWidth: 420, gap: 10, marginTop: 26 },
+});

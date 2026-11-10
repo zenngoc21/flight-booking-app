@@ -54,15 +54,15 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-100 px-4">
+    <div className="admin-login-screen min-h-screen flex items-center justify-center px-4">
       {contextHolder}
 
       <Card
-        className="w-full max-w-md shadow-xl"
+        className="admin-login-card w-full max-w-md"
         styles={{ body: { padding: 32 } }}
       >
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-600 text-white text-3xl mb-4">
+        <div className="admin-login-brand text-center mb-8">
+          <div className="admin-login-icon inline-flex items-center justify-center w-16 h-16 rounded-2xl text-white text-3xl mb-4">
             <SafetyCertificateOutlined />
           </div>
 

@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -113,7 +114,7 @@ export default function BookingHistoryScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#2563EB" />
+        <ActivityIndicator size="large" color="#2878B9" />
         <Text style={styles.description}>Đang tải lịch sử đặt vé...</Text>
       </View>
     );
@@ -159,6 +160,12 @@ export default function BookingHistoryScreen() {
         </View>
       ) : bookings.length === 0 ? (
         <View style={styles.emptyCard}>
+          <Image
+            source={require('../../assets/images/illustrations/empty-booking.png')}
+            style={styles.emptyIllustration}
+            resizeMode="contain"
+            accessibilityLabel="Minh họa chưa có vé máy bay"
+          />
           <Text style={styles.emptyTitle}>Chưa có dữ liệu đặt vé</Text>
           <Text style={styles.emptyDescription}>
             Hãy tìm chuyến bay và hoàn tất đặt chỗ để xem thông tin vé tại đây.
@@ -293,15 +300,19 @@ export default function BookingHistoryScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F5F8FC',
   },
   content: {
-    padding: 24,
-    paddingBottom: 40,
+    width: '100%',
+    maxWidth: 920,
+    alignSelf: 'center',
+    paddingHorizontal: 18,
+    paddingTop: 24,
+    paddingBottom: 48,
   },
   center: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F5F8FC',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
@@ -312,24 +323,36 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   title: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: '#111827',
+    fontSize: 28,
+    fontWeight: '900',
+    color: '#123B5D',
+    letterSpacing: -0.5,
   },
   description: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginTop: 10,
+    fontSize: 13,
+    color: '#62798B',
+    lineHeight: 20,
+    marginTop: 8,
     marginBottom: 20,
   },
   emptyCard: {
-    padding: 24,
+    padding: 26,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 14,
-    backgroundColor: '#F9FAFB',
+    borderColor: '#DCE8F1',
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     marginTop: 8,
+    shadowColor: '#123B5D',
+    shadowOpacity: 0.06,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 2,
+  },
+  emptyIllustration: {
+    width: 180,
+    height: 125,
+    marginBottom: 8,
   },
   emptyTitle: {
     fontSize: 17,
@@ -338,18 +361,23 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   emptyDescription: {
-    color: '#6B7280',
+    color: '#62798B',
     textAlign: 'center',
     lineHeight: 22,
     marginTop: 10,
   },
   bookingCard: {
-    padding: 16,
+    padding: 18,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 14,
+    borderColor: '#DCE8F1',
+    borderRadius: 19,
     backgroundColor: '#FFFFFF',
     marginTop: 12,
+    shadowColor: '#123B5D',
+    shadowOpacity: 0.05,
+    shadowRadius: 15,
+    shadowOffset: { width: 0, height: 7 },
+    elevation: 2,
   },
   bookingHeader: {
     flexDirection: 'row',
@@ -358,7 +386,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   bookingCode: {
-    color: '#175CD3',
+    color: '#2878B9',
     fontWeight: '700',
   },
   status: {
@@ -366,22 +394,22 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   airline: {
-    color: '#344054',
+    color: '#526C80',
     fontWeight: '600',
   },
   route: {
-    color: '#172B4D',
+    color: '#123B5D',
     fontWeight: '700',
     marginTop: 8,
   },
   detail: {
-    color: '#667085',
+    color: '#62798B',
     fontSize: 13,
     marginTop: 8,
   },
   cardFooter: {
     borderTopWidth: 1,
-    borderTopColor: '#EAECF0',
+    borderTopColor: '#DCE8F1',
     marginTop: 12,
     paddingTop: 10,
     flexDirection: 'row',
@@ -390,13 +418,13 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   price: {
-    color: '#175CD3',
+    color: '#2878B9',
     fontWeight: '800',
   },
   button: {
     minHeight: 50,
     borderRadius: 10,
-    backgroundColor: '#2563EB',
+    backgroundColor: '#2878B9',
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 24,
@@ -411,7 +439,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   backText: {
-    color: '#64748B',
+    color: '#62798B',
   },
   errorText: {
     color: '#B42318',
@@ -422,11 +450,11 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   retryText: {
-    color: '#175CD3',
+    color: '#2878B9',
     fontWeight: '700',
   },
   payButton: {
-  backgroundColor: '#2563EB',
+  backgroundColor: '#2878B9',
   paddingHorizontal: 14,
   paddingVertical: 10,
   borderRadius: 8,

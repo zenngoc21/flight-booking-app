@@ -78,7 +78,7 @@ export default function ProfileScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#2563EB" />
+        <ActivityIndicator size="large" color="#2878B9" />
         <Text style={styles.loadingText}>Đang tải hồ sơ...</Text>
       </View>
     );
@@ -103,11 +103,17 @@ export default function ProfileScreen() {
       style={styles.flex}
       contentContainerStyle={styles.container}
     >
-      <Text style={styles.avatar}>👤</Text>
-      <Text style={styles.title}>Hồ sơ khách hàng</Text>
-      <Text style={styles.subtitle}>
-        Quản lý thông tin tài khoản của bạn.
-      </Text>
+      <View style={styles.profileHero}>
+        <View style={styles.avatarCircle}>
+          <Text style={styles.avatarInitial}>
+            {user.fullName?.trim().charAt(0).toUpperCase() || 'S'}
+          </Text>
+        </View>
+        <Text style={styles.title}>Hồ sơ khách hàng</Text>
+        <Text style={styles.subtitle}>
+          Quản lý thông tin tài khoản của bạn.
+        </Text>
+      </View>
 
       <Text style={styles.label}>Họ và tên</Text>
       <TextInput
@@ -185,94 +191,127 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   flex: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F5F8FC',
   },
   container: {
     flexGrow: 1,
-    padding: 24,
-    justifyContent: 'center',
+    width: '100%',
+    maxWidth: 620,
+    alignSelf: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 24,
+    paddingBottom: 40,
   },
   center: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F5F8FC',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
   },
   loadingText: {
     marginTop: 12,
-    color: '#6B7280',
+    color: '#62798B',
   },
-  avatar: {
-    fontSize: 56,
-    textAlign: 'center',
+  profileHero: {
+    alignItems: 'center',
+    backgroundColor: '#123B5D',
+    borderRadius: 26,
+    padding: 26,
+    marginBottom: 24,
+    shadowColor: '#123B5D',
+    shadowOpacity: 0.16,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 9 },
+    elevation: 5,
+  },
+  avatarCircle: {
+    width: 78,
+    height: 78,
+    borderRadius: 39,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#EAF4FC',
+    borderWidth: 3,
+    borderColor: '#D6AD60',
     marginBottom: 12,
+  },
+  avatarInitial: {
+    color: '#123B5D',
+    fontSize: 30,
+    fontWeight: '800',
   },
   title: {
     fontSize: 26,
     fontWeight: '700',
-    color: '#111827',
+    color: '#FFFFFF',
     textAlign: 'center',
   },
   subtitle: {
-    color: '#6B7280',
+    color: '#EAF4FC',
     textAlign: 'center',
     marginTop: 8,
-    marginBottom: 28,
+    fontSize: 14,
   },
   label: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
+    fontWeight: '700',
+    color: '#526C80',
     marginBottom: 8,
   },
   input: {
     minHeight: 50,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 10,
+    borderColor: '#DCE8F1',
+    borderRadius: 13,
     paddingHorizontal: 14,
     marginBottom: 16,
     fontSize: 16,
-    color: '#111827',
+    color: '#123B5D',
     justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
   },
   readOnly: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#F8FAFC',
   },
   hint: {
-    color: '#6B7280',
+    color: '#62798B',
     fontSize: 12,
     marginTop: -10,
     marginBottom: 18,
   },
   supportCard: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F7FAFC',
     borderRadius: 12,
-    borderColor: '#E2E8F0',
+    borderColor: '#DCE8F1',
     borderWidth: 1,
     marginBottom: 12,
     padding: 14,
   },
   supportTitle: {
-    color: '#1E293B',
+    color: '#123B5D',
     fontSize: 14,
     fontWeight: '700',
     marginBottom: 5,
   },
   supportText: {
-    color: '#64748B',
+    color: '#62798B',
     fontSize: 13,
     marginTop: 3,
   },
   button: {
     minHeight: 50,
-    borderRadius: 10,
-    backgroundColor: '#2563EB',
+    borderRadius: 13,
+    backgroundColor: '#123B5D',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 16,
-    marginTop: 10,
+    marginTop: 11,
+    shadowColor: '#123B5D',
+    shadowOpacity: 0.1,
+    shadowRadius: 9,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
   },
   buttonText: {
     color: '#FFFFFF',
@@ -298,6 +337,6 @@ const styles = StyleSheet.create({
     marginTop: 22,
   },
   backText: {
-    color: '#64748B',
+    color: '#62798B',
   },
 });

@@ -11,7 +11,7 @@ const flightRoutes = require('./routes/flightRoutes');
 const bookingRoutes = require('./routes/bookingRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
 const adminRoutes = require('./routes/adminRoutes');
-
+const aiRoutes = require('./routes/aiRoutes');
 const {
   notFound,
   errorHandler,
@@ -110,7 +110,7 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/public', require('./routes/publicRoutes'));
 // Admin API
 app.use('/api/admin', adminRoutes);
-
+app.use('/api/ai', aiRoutes);
 // Error handlers - always last
 app.use(notFound);
 app.use(errorHandler);
